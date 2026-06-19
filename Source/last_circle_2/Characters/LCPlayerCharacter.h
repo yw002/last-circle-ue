@@ -175,10 +175,11 @@ protected:
     UPROPERTY()
     UMaterial* VertexColorWeaponMat = nullptr;
 
-    TSharedPtr<SOverlay> SlateHUD;
+    TSharedPtr<class SOverlay> SlateHUD;
     TSharedPtr<STextBlock> SlateAmmoText;
     TSharedPtr<STextBlock> SlateWeaponText;
     TSharedPtr<STextBlock> SlateReloadText;
+    TSharedPtr<STextBlock> SlateWaveText;
     TSharedPtr<SBox> SlateCrossTop, SlateCrossBot, SlateCrossLeft, SlateCrossRight;
     float CrosshairGap = 10.f;
     float CrosshairLen = 16.f;
@@ -211,6 +212,7 @@ protected:
     void SpawnBloodEffect(const FVector& Location);
     void SpawnBulletHole(const FVector& Location, const FVector& Normal);
     void SpawnShellEjection();
+    void PlayGunshotSound();
 
     void OnReloadComplete();
     void InitSlateUI();

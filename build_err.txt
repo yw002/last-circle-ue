@@ -1,0 +1,1 @@
+﻿Trace written to file C:\Users\mryan\AppData\Local\UnrealBuildTool\Trace.uba with size 1.5kb

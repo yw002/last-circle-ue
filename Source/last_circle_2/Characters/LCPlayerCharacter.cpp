@@ -22,6 +22,7 @@
 #include "Widgets/Layout/SBox.h"
 #include "Styling/CoreStyle.h"
 #include "Engine/GameViewportClient.h"
+#include "Sound/SoundWaveProcedural.h"
 
 ALCPlayerCharacter::ALCPlayerCharacter()
 {
@@ -109,6 +110,25 @@ void ALCPlayerCharacter::Tick(float DeltaSeconds)
     if (bIsDead) return;
 
     UpdateSlateCrosshair();
+
+    // Update wave info display
+    if (SlateWaveText.IsValid())
+    {
+        if (ALCGameMode* GM = Cast<ALCGameMode>(UGameplayStatics::GetGameMode(this)))
+        {
+            int32 Wave = GM->GetCurrentWave();
+            FString PhaseStr;
+            switch (GM->GetCurrentPhase())
+            {
+            case EGamePhase::WaveCombat: PhaseStr = TEXT("COMBAT"); break;
+            case EGamePhase::RestPeriod: PhaseStr = TEXT("REST"); break;
+            case EGamePhase::BossFight: PhaseStr = TEXT("BOSS"); break;
+            case EGamePhase::Victory: PhaseStr = TEXT("VICTORY"); break;
+            default: PhaseStr = TEXT(""); break;
+            }
+            SlateWaveText->SetText(FText::FromString(FString::Printf(TEXT("WAVE %d/20 - %s"), Wave, *PhaseStr)));
+        }
+    }
 
     UpdateParachute(DeltaSeconds);
     UpdateShooting(DeltaSeconds);
@@ -348,6 +368,7 @@ void ALCPlayerCharacter::Fire()
 
     SpawnMuzzleFlash();
     SpawnShellEjection();
+    PlayGunshotSound();
 
     // Update HUD ammo via Slate
     FString AmmoStr = FString::Printf(TEXT("%d / %d"), CurrentAmmoInMag, (PS) ? PS->GetAmmoPool() : 0);
@@ -651,6 +672,36 @@ void ALCPlayerCharacter::SpawnShellEjection()
             Shell->DestroyComponent();
         }
     }, 0.5f, false);
+}
+
+void ALCPlayerCharacter::PlayGunshotSound()
+{
+    const int32 SampleRate = 44100;
+    const float DurationSec = 0.1f;
+    const int32 NumSamples = FMath::CeilToInt(SampleRate * DurationSec);
+    const int32 NumBytes = NumSamples * sizeof(int16);
+
+    TArray<uint8> PCM;
+    PCM.SetNumZeroed(NumBytes);
+    int16* Samples = reinterpret_cast<int16*>(PCM.GetData());
+
+    FRandomStream Rng(FMath::Rand());
+    for (int32 i = 0; i < NumSamples; ++i)
+    {
+        float t = (float)i / NumSamples;
+        float Env = FMath::Exp(-t * 30.f);
+        float Noise = Rng.FRandRange(-1.f, 1.f);
+        Samples[i] = static_cast<int16>(Noise * 32767.f * Env * 0.6f);
+    }
+
+    USoundWaveProcedural* Sound = NewObject<USoundWaveProcedural>(USoundWaveProcedural::StaticClass());
+    Sound->SetSampleRate(SampleRate);
+    Sound->NumChannels = 1;
+    Sound->Duration = DurationSec;
+    Sound->bLooping = false;
+    Sound->QueueAudio(PCM.GetData(), NumBytes);
+
+    UGameplayStatics::PlaySound2D(GetWorld(), Sound, 1.f, 0.9f + FMath::FRandRange(0.f, 0.2f));
 }
 
 // --- ADS ---
@@ -1098,6 +1149,11 @@ void ALCPlayerCharacter::InitSlateUI()
         .ColorAndOpacity(FLinearColor(1.f, 0.8f, 0.f))
         .Visibility(EVisibility::Hidden);
 
+    SAssignNew(SlateWaveText, STextBlock)
+        .Font(BigFont)
+        .ColorAndOpacity(FLinearColor(1.f, 0.9f, 0.3f))
+        .Text(FText::FromString(TEXT("WAVE 1 / 20")));
+
     SAssignNew(SlateCrossTop, SBox)
         .WidthOverride(2.f).HeightOverride(16.f)
         [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
@@ -1132,6 +1188,8 @@ void ALCPlayerCharacter::InitSlateUI()
           .Size(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(CrosshairLen, 2.f); }))
           [SlateCrossRight.ToSharedRef()]
     ]
+    + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Top).Padding(0, 20, 0, 0)
+    [SlateWaveText.ToSharedRef()]
     + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(0, 0, 30, 30)
     [
         SNew(SVerticalBox)

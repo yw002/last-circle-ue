@@ -140,9 +140,10 @@ void ALCGameMode::BeginPlay()
     UE_LOG(LogTemp, Warning, TEXT("Spawning initial enemies and bots... SKIPPED (0 enemies)"));
 
 
-    UE_LOG(LogTemp, Warning, TEXT("Setting game phase to WaveCombat (test mode)"));
+    UE_LOG(LogTemp, Warning, TEXT("Setting game phase to WaveCombat 20-WAVE system"));
     SetGamePhase(EGamePhase::WaveCombat);
-    CurrentWave = 0; // Wave 0 = no enemies yet, just test exploration
+    CurrentWave = 1;
+    SpawnWaveEnemies();
     UE_LOG(LogTemp, Warning, TEXT("=== LCGameMode BeginPlay COMPLETE ==="));
 }
 
@@ -300,7 +301,6 @@ void ALCGameMode::SpawnPickupAtLocation(const FVector& Location, int32 Count)
 
 void ALCGameMode::SpawnWaveEnemies()
 {
-    CurrentWave++;
     int32 EnemyCount = BASE_ENEMY_COUNT + CurrentWave * ENEMIES_PER_WAVE;
 
     APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);

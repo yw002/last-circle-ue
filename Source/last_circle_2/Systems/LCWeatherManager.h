@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "Core/LCGameState.h"
 #include "ProceduralMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "LCWeatherManager.generated.h"
 
 UCLASS()
