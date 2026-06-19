@@ -32,7 +32,7 @@ public:
         Super::BeginPlay();
         BuildBubble();
         BuildItemMesh();
-        UMaterial* M = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
+        UMaterial* M = ALCBaseCharacter::GetOrCreateVertexColorMaterial();
         if (M)
         {
             BubbleMesh->SetMaterial(0, UMaterialInstanceDynamic::Create(M, this));
@@ -137,7 +137,7 @@ public:
     virtual void BeginPlay() override
     {
         Super::BeginPlay();
-        VertexColorMaterial = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
+        VertexColorMaterial = ALCBaseCharacter::GetOrCreateVertexColorMaterial();
         EnvActor = Cast<ALCEnvironmentActor>(UGameplayStatics::GetActorOfClass(GetWorld(), ALCEnvironmentActor::StaticClass()));
 
         GenerateHouses();

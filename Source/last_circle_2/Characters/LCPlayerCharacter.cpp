@@ -72,11 +72,7 @@ void ALCPlayerCharacter::BeginPlay()
         SetActorLocation(MyLoc, false, nullptr, ETeleportType::TeleportPhysics);
     }
 
-    VertexColorWeaponMat = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
-    if (!VertexColorWeaponMat)
-    {
-        VertexColorWeaponMat = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial"));
-    }
+    VertexColorWeaponMat = ALCBaseCharacter::GetOrCreateVertexColorMaterial();
 
     // Slate UI - create overlay with text widgets pushed to game viewport
     InitSlateUI();

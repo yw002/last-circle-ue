@@ -5,6 +5,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/BoxComponent.h"
 #include "Engine/World.h"
+#include "Characters/LCBaseCharacter.h"
 #include "LCEnvironmentActor.generated.h"
 
 UENUM(BlueprintType)
@@ -40,11 +41,7 @@ public:
     {
         Super::BeginPlay();
 
-        VertexColorMaterial = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
-        if (!VertexColorMaterial)
-        {
-            VertexColorMaterial = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial"));
-        }
+        VertexColorMaterial = ALCBaseCharacter::GetOrCreateVertexColorMaterial();
 
         GenerateBiomeLookup();
         GenerateTerrain();

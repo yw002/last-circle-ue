@@ -69,6 +69,8 @@ public:
     UFUNCTION(BlueprintCallable)
     void FlashRed(float Duration = 0.15f);
 
+    static UMaterial* GetOrCreateVertexColorMaterial();
+
 protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly)
     float Health = 500.f;

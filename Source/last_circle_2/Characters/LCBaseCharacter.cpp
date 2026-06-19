@@ -5,6 +5,11 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
+#if WITH_EDITOR
+#include "Materials/MaterialExpressionVertexColor.h"
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "UObject/SavePackage.h"
+#endif
 
 ALCBaseCharacter::ALCBaseCharacter()
 {
@@ -44,7 +49,7 @@ void ALCBaseCharacter::BeginPlay()
     Super::BeginPlay();
     Health = MaxHealth * HealthMultiplier;
 
-    VertexColorMaterial = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
+    VertexColorMaterial = ALCBaseCharacter::GetOrCreateVertexColorMaterial();
 }
 
 float ALCBaseCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
@@ -353,4 +358,41 @@ void ALCBaseCharacter::FlashRed(float Duration)
             }
         }
     }
+}
+
+UMaterial* ALCBaseCharacter::GetOrCreateVertexColorMaterial()
+{
+    static UMaterial* Cached = nullptr;
+    if (Cached) return Cached;
+
+    Cached = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
+    if (Cached) return Cached;
+
+    Cached = LoadObject<UMaterial>(nullptr, TEXT("/Game/Materials/M_VertexColor.M_VertexColor"));
+    if (Cached) return Cached;
+
+#if WITH_EDITOR
+    UPackage* Pkg = CreatePackage(*FString("/Game/Materials/M_VertexColor"));
+    Cached = NewObject<UMaterial>(Pkg, UMaterial::StaticClass(), FName("M_VertexColor"), RF_Public | RF_Standalone);
+    Cached->MaterialDomain = MD_Surface;
+    Cached->BlendMode = BLEND_Opaque;
+
+    UMaterialExpressionVertexColor* VtxNode = NewObject<UMaterialExpressionVertexColor>(Cached);
+    Cached->GetExpressionCollection().AddExpression(VtxNode);
+    Cached->GetEditorOnlyData()->EmissiveColor.Expression = VtxNode;
+
+    Cached->PostLoad();
+    FAssetRegistryModule::AssetCreated(Cached);
+    Pkg->MarkPackageDirty();
+    FSavePackageArgs SaveArgs;
+    SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+    UPackage::SavePackage(Pkg, Cached, *FPackageName::LongPackageNameToFilename(TEXT("/Game/Materials/M_VertexColor"), FPackageName::GetAssetPackageExtension()), SaveArgs);
+#endif
+
+    if (!Cached)
+    {
+        Cached = UMaterial::GetDefaultMaterial(MD_Surface);
+    }
+
+    return Cached;
 }
