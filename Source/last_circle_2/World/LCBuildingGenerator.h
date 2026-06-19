@@ -73,41 +73,28 @@ protected:
     {
         TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
         TArray<FColor> C; TArray<FVector2D> UV; TArray<FProcMeshTangent> Tan;
-        float R = 30.f;
-        int32 Rings = 8, Segs = 10;
-        V.Add(FVector(0,0,R));
-        V.Add(FVector(0,0,-R));
-        C.Add(FColor(255,255,100,80)); C.Add(FColor(255,255,100,80));
-        UV.Add(FVector2D::ZeroVector); UV.Add(FVector2D::ZeroVector);
-        for (int32 ring = 1; ring < Rings; ++ring)
+        // 3 orthogonal rings (torus-like) so item is visible through gaps
+        float R = 30.f, TR = 2.5f;
+        int32 RSegs = 24;
+        for (int32 plane = 0; plane < 3; ++plane)
         {
-            float Phi = PI * ring / Rings, SP = FMath::Sin(Phi), CP = FMath::Cos(Phi);
-            for (int32 s = 0; s < Segs; ++s)
+            for (int32 i = 0; i < RSegs; ++i)
             {
-                float Th = 2.f * PI * s / Segs;
-                V.Add(FVector(R * SP * FMath::Cos(Th), R * SP * FMath::Sin(Th), R * CP));
-                C.Add(FColor(255,255,150,60)); UV.Add(FVector2D::ZeroVector);
-            }
-        }
-        for (int32 s = 0; s < Segs; ++s)
-        {
-            int32 Next = (s+1)%Segs;
-            T.Add(0); T.Add(2+s); T.Add(2+Next);
-        }
-        int32 BaseIdx = 2 + (Rings-2) * Segs;
-        for (int32 s = 0; s < Segs; ++s)
-        {
-            int32 Next = (s+1)%Segs;
-            T.Add(1); T.Add(BaseIdx+Next); T.Add(BaseIdx+s);
-        }
-        for (int32 ring = 0; ring < Rings-2; ++ring)
-        {
-            for (int32 s = 0; s < Segs; ++s)
-            {
-                int32 Next = (s+1)%Segs, Cv = 2+ring*Segs+s, NCv = 2+ring*Segs+Next;
-                int32 Bw = 2+(ring+1)*Segs+s, BwN = 2+(ring+1)*Segs+Next;
-                T.Add(Cv); T.Add(Bw); T.Add(NCv);
-                T.Add(NCv); T.Add(Bw); T.Add(BwN);
+                float A1 = 2.f * PI * i / RSegs;
+                float A2 = 2.f * PI * (i + 1) / RSegs;
+                FVector C1, C2;
+                if (plane == 0) { C1 = FVector(R * FMath::Cos(A1), R * FMath::Sin(A1), 0); C2 = FVector(R * FMath::Cos(A2), R * FMath::Sin(A2), 0); }
+                else if (plane == 1) { C1 = FVector(R * FMath::Cos(A1), 0, R * FMath::Sin(A1)); C2 = FVector(R * FMath::Cos(A2), 0, R * FMath::Sin(A2)); }
+                else { C1 = FVector(0, R * FMath::Cos(A1), R * FMath::Sin(A1)); C2 = FVector(0, R * FMath::Cos(A2), R * FMath::Sin(A2)); }
+                FVector Fwd = (C2 - C1).GetSafeNormal();
+                FVector Up = FVector::CrossProduct(Fwd, C1.GetSafeNormal()).GetSafeNormal();
+                int32 B = V.Num();
+                V.Add(C1 + Up * TR); V.Add(C1 - Up * TR);
+                V.Add(C2 + Up * TR); V.Add(C2 - Up * TR);
+                FColor Glow = (i % 2 == 0) ? FColor(255, 255, 100) : FColor(255, 255, 180);
+                for (int32 j = 0; j < 4; ++j) { C.Add(Glow); UV.Add(FVector2D::ZeroVector); }
+                T.Add(B); T.Add(B + 2); T.Add(B + 1);
+                T.Add(B + 1); T.Add(B + 2); T.Add(B + 3);
             }
         }
         BubbleMesh->CreateMeshSection(0, V, T, N, UV, C, Tan, false);
@@ -126,7 +113,7 @@ protected:
         case 4: It = FColor(30,80,200); break; // Armor blue
         default: It = FColor(200,200,200); break;
         }
-        float S = 10.f;
+        float S = 14.f;
         V.Add(FVector(-S,-S,-S)); V.Add(FVector(S,-S,-S)); V.Add(FVector(S,S,-S)); V.Add(FVector(-S,S,-S));
         V.Add(FVector(-S,-S,S)); V.Add(FVector(S,-S,S)); V.Add(FVector(S,S,S)); V.Add(FVector(-S,S,S));
         for (int32 i = 0; i < 8; ++i) { C.Add(It); UV.Add(FVector2D::ZeroVector); }
@@ -219,7 +206,7 @@ protected:
         TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
         TArray<FColor> C; TArray<FVector2D> UV; TArray<FProcMeshTangent> Tan;
 
-        float W = FMath::RandRange(120.f, 250.f), D = FMath::RandRange(80.f, 200.f), Ht = FMath::RandRange(60.f, 180.f);
+        float W = FMath::RandRange(400.f, 800.f), D = FMath::RandRange(280.f, 600.f), Ht = FMath::RandRange(200.f, 500.f);
 
         auto AddWall = [&](const FVector& A, const FVector& B, const FVector& Cv, const FVector& Dv, FColor Col) {
             int32 Base = V.Num();
@@ -241,7 +228,7 @@ protected:
         int32 RB = V.Num();
         V.Add(FVector(-hw-10,-hd-10,Ht)); V.Add(FVector(hw+10,-hd-10,Ht));
         V.Add(FVector(hw+10,hd+10,Ht)); V.Add(FVector(-hw+10,hd+10,Ht));
-        V.Add(FVector(0,0,Ht+40.f));
+        V.Add(FVector(0,0,Ht+120.f));
         for (int32 j = 0; j < 5; ++j) { C.Add(RoofCol); UV.Add(FVector2D::ZeroVector); }
         T.Add(RB);T.Add(RB+4);T.Add(RB+1);T.Add(RB+1);T.Add(RB+4);T.Add(RB+2);
         T.Add(RB+2);T.Add(RB+4);T.Add(RB+3);T.Add(RB+3);T.Add(RB+4);T.Add(RB);
@@ -275,7 +262,7 @@ protected:
         TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
         TArray<FColor> C; TArray<FVector2D> UV; TArray<FProcMeshTangent> Tan;
 
-        float W = 200.f, D = 140.f, Ht = 80.f;
+        float W = 600.f, D = 400.f, Ht = 250.f;
         float hw = W*0.5f, hd = D*0.5f;
         FColor Wall(210,200,180), Glass(120,200,240);
 
@@ -313,12 +300,12 @@ protected:
             TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
             TArray<FColor> C; TArray<FVector2D> UV; TArray<FProcMeshTangent> Tan;
             int32 NumPillars = FMath::RandRange(5, 12);
-            float CircleR = FMath::RandRange(80.f, 300.f);
+            float CircleR = FMath::RandRange(200.f, 800.f);
             for (int32 p = 0; p < NumPillars; ++p)
             {
                 float A = 2.f*PI*p/NumPillars;
                 float PX = CircleR * FMath::Cos(A), PY = CircleR * FMath::Sin(A);
-                float PH = FMath::RandRange(40.f, 200.f), PR = FMath::RandRange(4.f, 12.f);
+                float PH = FMath::RandRange(100.f, 500.f), PR = FMath::RandRange(12.f, 30.f);
                 int32 Segs = 6;
                 for (int32 s = 0; s < Segs; ++s)
                 {
@@ -357,7 +344,7 @@ protected:
             TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
             TArray<FColor> C; TArray<FVector2D> UV; TArray<FProcMeshTangent> Tan;
 
-            float BW = 30.f, BH = 25.f, BD = 20.f;
+            float BW = 80.f, BH = 60.f, BD = 50.f;
             int32 B = V.Num();
             V.Add(FVector(-BW,-BD,0));V.Add(FVector(BW,-BD,0));V.Add(FVector(BW,BD,0));V.Add(FVector(-BW,BD,0));
             V.Add(FVector(-BW,-BD,BH));V.Add(FVector(BW,-BD,BH));V.Add(FVector(BW,BD,BH));V.Add(FVector(-BW,BD,BH));
@@ -372,11 +359,11 @@ protected:
 
             // Fence posts
             int32 NumPosts = 12;
-            float FR = 80.f;
+            float FR = 200.f;
             for (int32 p = 0; p < NumPosts; ++p)
             {
                 float A = 2.f*PI*p/NumPosts;
-                float PX=FR*FMath::Cos(A),PY=FR*FMath::Sin(A),PH=10.f,PS=2.f;
+                float PX=FR*FMath::Cos(A),PY=FR*FMath::Sin(A),PH=24.f,PS=4.f;
                 V.Add(FVector(PX-PS,PY-PS,0));V.Add(FVector(PX+PS,PY-PS,0));
                 V.Add(FVector(PX+PS,PY+PS,0));V.Add(FVector(PX-PS,PY+PS,0));
                 V.Add(FVector(PX-PS,PY-PS,PH));V.Add(FVector(PX+PS,PY-PS,PH));

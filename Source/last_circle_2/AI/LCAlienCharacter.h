@@ -5,6 +5,7 @@
 #include "ProceduralMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "LCAlienCharacter.generated.h"
 
 UENUM() enum class EAlienState : uint8 { Idle, Patrol, Attack, Teleport };
@@ -20,11 +21,13 @@ public:
         Health = 150.f; MaxHealth = 150.f;
         BaseSpeed = 400.f;
         GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
+        GetCapsuleComponent()->SetCapsuleSize(50.f, 110.f);
     }
     virtual void BeginPlay() override
     {
         Super::BeginPlay();
         BuildAlienBody();
+        BodyMesh->SetWorldScale3D(FVector(1.5f));
         CurrentState = EAlienState::Patrol;
         PatrolTarget = GetActorLocation() + FVector(FMath::RandRange(-400.f, 400.f), FMath::RandRange(-400.f, 400.f), 0.f);
     }
@@ -103,7 +106,7 @@ protected:
         if (PC && PC->GetPawn())
         {
             float PlayerDist = FVector::Dist(GetActorLocation(), PC->GetPawn()->GetActorLocation());
-            if (PlayerDist < 500.f)
+            if (PlayerDist < 3000.f)
             {
                 TargetActor = PC->GetPawn();
                 CurrentState = EAlienState::Attack;

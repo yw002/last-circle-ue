@@ -897,6 +897,11 @@ void ALCPlayerCharacter::EquipWeapon(FName WeaponName)
 
     BuildWeaponModel(WeaponName);
 
+    if (WeaponMesh)
+    {
+        WeaponMesh->SetRelativeScale3D(FVector(0.4f));
+    }
+
     if (VertexColorWeaponMat && WeaponMesh)
     {
         for (int32 s = 0; s < WeaponMesh->GetNumSections(); ++s)

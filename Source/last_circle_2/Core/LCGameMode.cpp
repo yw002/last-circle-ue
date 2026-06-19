@@ -452,7 +452,7 @@ void ALCGameMode::CheckVictoryConditions()
 FVector ALCGameMode::GetRandomSpawnLocation(const FVector& PlayerPos) const
 {
     float Angle = FMath::RandRange(0.f, 360.f);
-    float Dist  = FMath::RandRange(3000.f, 15000.f);
+    float Dist  = FMath::RandRange(800.f, 2000.f);
     FVector Offset(FMath::Cos(FMath::DegreesToRadians(Angle)) * Dist,
                    FMath::Sin(FMath::DegreesToRadians(Angle)) * Dist, 0.f);
     FVector Loc = PlayerPos + Offset;

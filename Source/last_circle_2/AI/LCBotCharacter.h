@@ -2,8 +2,11 @@
 #include "CoreMinimal.h"
 #include "Engine/DamageEvents.h"
 #include "Characters/LCBaseCharacter.h"
+#include "Characters/LCPlayerCharacter.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "ProceduralMeshComponent.h"
 #include "LCBotCharacter.generated.h"
 
 UENUM() enum class EBotState : uint8 { Wander, Attack, Dance };
@@ -18,6 +21,7 @@ public:
         PrimaryActorTick.bCanEverTick = true;
         Health = 200.f; MaxHealth = 200.f;
         BaseSpeed = 400.f;
+        GetCapsuleComponent()->SetCapsuleSize(50.f, 110.f);
     }
     virtual void BeginPlay() override
     {
@@ -27,6 +31,8 @@ public:
         BuildProceduralBody(Skin, Cloth);
         ApplyVertexColorMaterial();
         GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
+        BodyMesh->SetWorldScale3D(FVector(1.5f));
+        HeadMesh->SetWorldScale3D(FVector(1.5f));
         // Random equipment
         HelmetLevel = static_cast<EEquipmentLevel>(FMath::RandRange(0, 3));
         ArmorLevel = static_cast<EEquipmentLevel>(FMath::RandRange(0, 3));
@@ -52,12 +58,11 @@ protected:
     UPROPERTY() FVector WanderTarget = FVector::ZeroVector;
     UPROPERTY() float AttackCooldown = 0.f;
     UPROPERTY() AActor* TargetActor = nullptr;
-    UPROPERTY() float UpdateCounter = 0.f;
 
     void UpdateWander(float DT)
     {
         FVector Dir = (WanderTarget - GetActorLocation()).GetSafeNormal();
-        AddMovementInput(Dir, 1.f);
+        AddMovementInput(Dir, 0.5f);
 
         float Dist = FVector::Dist2D(GetActorLocation(), WanderTarget);
         if (Dist < 50.f)
@@ -65,24 +70,18 @@ protected:
             WanderTarget = GetActorLocation() + FVector(FMath::RandRange(-500.f,500.f), FMath::RandRange(-500.f,500.f), 0.f);
         }
 
-        // Check for nearby player/bot to attack
-        UpdateCounter += DT;
-        if (UpdateCounter > 1.f)
+        TArray<FHitResult> Hits;
+        FCollisionShape Sphere = FCollisionShape::MakeSphere(2500.f);
+        GetWorld()->SweepMultiByChannel(Hits, GetActorLocation(), GetActorLocation(), FQuat::Identity, ECC_Pawn, Sphere);
+        for (const FHitResult& H : Hits)
         {
-            UpdateCounter = 0.f;
-            TArray<FHitResult> Hits;
-            FCollisionShape Sphere = FCollisionShape::MakeSphere(500.f);
-            GetWorld()->SweepMultiByChannel(Hits, GetActorLocation(), GetActorLocation(), FQuat::Identity, ECC_Pawn, Sphere);
-            for (const FHitResult& H : Hits)
+            if (ALCBaseCharacter* C = Cast<ALCBaseCharacter>(H.GetActor()))
             {
-                if (ALCBaseCharacter* C = Cast<ALCBaseCharacter>(H.GetActor()))
+                if (C != this && C->IsAlive() && C->IsA<ALCPlayerCharacter>())
                 {
-                    if (C != this && C->IsAlive())
-                    {
-                        TargetActor = C;
-                        CurrentState = EBotState::Attack;
-                        break;
-                    }
+                    TargetActor = C;
+                    CurrentState = EBotState::Attack;
+                    break;
                 }
             }
         }
@@ -101,16 +100,13 @@ protected:
         AddMovementInput(Dir, 1.f);
 
         float Dist = FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
-        if (Dist < 500.f)
+        AttackCooldown -= DT;
+        if (Dist < 800.f && AttackCooldown <= 0.f)
         {
-            AttackCooldown -= DT;
-            if (AttackCooldown <= 0.f)
-            {
-                float Dmg = 15.f * DamageMultiplier;
-                FDamageEvent DmgEvent;
-                TargetActor->TakeDamage(Dmg, DmgEvent, GetController(), this);
-                AttackCooldown = 0.5f;
-            }
+            float Dmg = 15.f * DamageMultiplier;
+            FDamageEvent DmgEvent;
+            TargetActor->TakeDamage(Dmg, DmgEvent, GetController(), this);
+            AttackCooldown = 0.4f;
         }
     }
 };
