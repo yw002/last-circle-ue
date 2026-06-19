@@ -1,0 +1,1 @@
+#include "UI/LCMinimapWidget.h"
