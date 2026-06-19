@@ -64,7 +64,7 @@ public:
             if (S) { S->SetAnchors(FAnchors(0.4f, 0.55f, 0.6f, 0.6f)); S->SetAutoSize(true); S->SetAlignment(FVector2D(0.5f, 0.5f)); }
         }
 
-        // Crosshair: 4 UTextBlock with box-drawing chars (always render, no texture needed)
+        // Crosshair: 4 UTextBlock with box-drawing chars
         for (int32 i = 0; i < 4; ++i)
         {
             CrosshairTexts[i] = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), FName(*FString::Printf(TEXT("XHair%d"), i)));
@@ -76,10 +76,10 @@ public:
                 if (S) { S->SetAnchors(FAnchors(0.5f, 0.5f, 0.5f, 0.5f)); S->SetAutoSize(true); }
             }
         }
-        CrosshairTexts[0]->SetText(FText::FromString(TEXT("\xE2\x94\x82"))); // top "│"
-        CrosshairTexts[1]->SetText(FText::FromString(TEXT("\xE2\x94\x82"))); // bottom "│"
-        CrosshairTexts[2]->SetText(FText::FromString(TEXT("\xE2\x94\x80\xE2\x94\x80"))); // left "──"
-        CrosshairTexts[3]->SetText(FText::FromString(TEXT("\xE2\x94\x80\xE2\x94\x80"))); // right "──"
+        if (CrosshairTexts[0]) CrosshairTexts[0]->SetText(FText::FromString(TEXT("\xE2\x94\x82"))); // top "│"
+        if (CrosshairTexts[1]) CrosshairTexts[1]->SetText(FText::FromString(TEXT("\xE2\x94\x82"))); // bottom "│"
+        if (CrosshairTexts[2]) CrosshairTexts[2]->SetText(FText::FromString(TEXT("\xE2\x94\x80\xE2\x94\x80"))); // left "──"
+        if (CrosshairTexts[3]) CrosshairTexts[3]->SetText(FText::FromString(TEXT("\xE2\x94\x80\xE2\x94\x80"))); // right "──"
 
         // Alive count (top-right)
         AliveText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("AliveText"));

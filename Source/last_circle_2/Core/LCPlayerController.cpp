@@ -218,7 +218,7 @@ void ALCPlayerController::OnCrouchToggle()
 
 void ALCPlayerController::CreateHUD()
 {
-    if (IsLocalController())
+    if (IsLocalController() && !HUDWidget)
     {
         HUDWidget = CreateWidget<ULCHUDWidget>(this, ULCHUDWidget::StaticClass());
         if (HUDWidget)
