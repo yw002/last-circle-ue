@@ -233,16 +233,12 @@ void ALCGameMode::OnEntityKilled(AActor* Killer, AActor* Victim, bool bIsHeadsho
     // Check wave progress
     if (CurrentPhase == EGamePhase::WaveCombat)
     {
-        // Count alive enemies
         int32 AliveEnemies = 0;
         int32 TotalSpawnedThisWave = BASE_ENEMY_COUNT + CurrentWave * ENEMIES_PER_WAVE;
-        for (TActorIterator<ALCBotCharacter> It(GetWorld()); It; ++It)
+        for (TActorIterator<ALCBaseCharacter> It(GetWorld()); It; ++It)
         {
-            if (It->GetHealth() > 0.f) AliveEnemies++;
-        }
-        for (TActorIterator<ALCZombieCharacter> It(GetWorld()); It; ++It)
-        {
-            if (It->GetHealth() > 0.f) AliveEnemies++;
+            if (It->GetHealth() > 0.f && !It->IsA<ALCPlayerCharacter>())
+                AliveEnemies++;
         }
 
         float KillPercent = 1.f - ((float)AliveEnemies / FMath::Max(1, TotalSpawnedThisWave));

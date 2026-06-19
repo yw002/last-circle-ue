@@ -1,7 +1,9 @@
-﻿#pragma once
+#pragma once
 #include "CoreMinimal.h"
 #include "Engine/DamageEvents.h"
 #include "Characters/LCBaseCharacter.h"
+#include "Characters/LCPlayerCharacter.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "LCZombieCharacter.generated.h"
 
 UCLASS()
@@ -13,7 +15,8 @@ public:
     {
         PrimaryActorTick.bCanEverTick = true;
         Health = 80.f; MaxHealth = 80.f;
-        BaseSpeed = 250.f;
+        BaseSpeed = 350.f;
+        GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
     }
     virtual void BeginPlay() override
     {
@@ -27,7 +30,7 @@ public:
         // Find nearest target
         AttackCooldown -= DeltaSeconds;
         TArray<FHitResult> Hits;
-        FCollisionShape Sphere = FCollisionShape::MakeSphere(400.f);
+        FCollisionShape Sphere = FCollisionShape::MakeSphere(800.f);
         GetWorld()->SweepMultiByChannel(Hits, GetActorLocation(), GetActorLocation(), FQuat::Identity, ECC_Pawn, Sphere);
         ALCBaseCharacter* Nearest = nullptr; float MinDist = MAX_FLT;
         for (const FHitResult& H : Hits)
@@ -44,8 +47,8 @@ public:
         if (Nearest)
         {
             FVector Dir = (Nearest->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-            AddMovementInput(Dir, BaseSpeed * DeltaSeconds);
-            if (MinDist < 80.f && AttackCooldown <= 0.f)
+            AddMovementInput(Dir, 1.f);
+            if (MinDist < 100.f && AttackCooldown <= 0.f)
             {
                 float Dmg = 12.f * DamageMultiplier;
                 // Reduce damage vs bots

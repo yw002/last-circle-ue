@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "CoreMinimal.h"
 #include "Engine/DamageEvents.h"
 #include "Characters/LCBaseCharacter.h"
@@ -52,7 +52,7 @@ protected:
     void UpdateWander(float DT)
     {
         FVector Dir = (WanderTarget - GetActorLocation()).GetSafeNormal();
-        AddMovementInput(Dir, 300.f * DT);
+        AddMovementInput(Dir, 1.f);
 
         float Dist = FVector::Dist2D(GetActorLocation(), WanderTarget);
         if (Dist < 50.f)
@@ -65,9 +65,8 @@ protected:
         if (UpdateCounter > 1.f)
         {
             UpdateCounter = 0.f;
-            // Simple detection
             TArray<FHitResult> Hits;
-            FCollisionShape Sphere = FCollisionShape::MakeSphere(300.f);
+            FCollisionShape Sphere = FCollisionShape::MakeSphere(500.f);
             GetWorld()->SweepMultiByChannel(Hits, GetActorLocation(), GetActorLocation(), FQuat::Identity, ECC_Pawn, Sphere);
             for (const FHitResult& H : Hits)
             {
@@ -94,7 +93,7 @@ protected:
         }
 
         FVector Dir = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-        AddMovementInput(Dir, 400.f * DT);
+        AddMovementInput(Dir, 1.f);
 
         float Dist = FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
         if (Dist < 500.f)

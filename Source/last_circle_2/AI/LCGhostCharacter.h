@@ -3,6 +3,8 @@
 #include "Engine/DamageEvents.h"
 #include "Components/CapsuleComponent.h"
 #include "Characters/LCBaseCharacter.h"
+#include "ProceduralMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "LCGhostCharacter.generated.h"
 
 UCLASS()
@@ -58,7 +60,7 @@ public:
                 float Dist = FVector::Dist(GetActorLocation(), PC->GetPawn()->GetActorLocation());
                 if (Dist < 150.f && Dist > 20.f)
                 {
-                    AddMovementInput(Dir, 30.f * DeltaSeconds);
+                    AddMovementInput(Dir, 0.2f);
                 }
                 // Always face player
                 FRotator LookAt = (PC->GetPawn()->GetActorLocation() - GetActorLocation()).Rotation();

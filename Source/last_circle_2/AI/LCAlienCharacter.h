@@ -1,8 +1,10 @@
-﻿#pragma once
+#pragma once
 #include "CoreMinimal.h"
 #include "Engine/DamageEvents.h"
 #include "Characters/LCBaseCharacter.h"
 #include "ProceduralMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "LCAlienCharacter.generated.h"
 
 UENUM() enum class EAlienState : uint8 { Idle, Patrol, Attack, Teleport };
@@ -17,6 +19,7 @@ public:
         PrimaryActorTick.bCanEverTick = true;
         Health = 150.f; MaxHealth = 150.f;
         BaseSpeed = 400.f;
+        GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
     }
     virtual void BeginPlay() override
     {
@@ -86,7 +89,7 @@ protected:
     void UpdatePatrol(float DT)
     {
         FVector Dir = (PatrolTarget - GetActorLocation()).GetSafeNormal();
-        AddMovementInput(Dir, BaseSpeed * DT);
+        AddMovementInput(Dir, 1.f);
 
         float Dist = FVector::Dist2D(GetActorLocation(), PatrolTarget);
         if (Dist < 50.f)
@@ -118,7 +121,7 @@ protected:
         }
 
         FVector Dir = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-        AddMovementInput(Dir, BaseSpeed * 1.3f * DT);
+        AddMovementInput(Dir, 1.f);
 
         // Face target
         FRotator LookAt = (TargetActor->GetActorLocation() - GetActorLocation()).Rotation();

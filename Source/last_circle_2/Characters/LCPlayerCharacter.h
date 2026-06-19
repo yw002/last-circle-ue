@@ -29,6 +29,7 @@ public:
     virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
         AController* EventInstigator, AActor* DamageCauser) override;
     virtual void Die(AActor* Killer) override;
+    virtual bool CanJumpInternal_Implementation() const override;
 
     // Movement
     void MoveForward(float Value);

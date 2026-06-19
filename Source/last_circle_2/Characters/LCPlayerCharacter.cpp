@@ -34,9 +34,6 @@ ALCPlayerCharacter::ALCPlayerCharacter()
     bUseControllerRotationRoll = false;
 
     GetCharacterMovement()->bOrientRotationToMovement = false;
-    GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
-    GetCharacterMovement()->JumpZVelocity = 420.f;
-    GetCharacterMovement()->AirControl = 0.3f;
 
     // FPS Camera
     FPSCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FPSCamera"));
@@ -242,6 +239,11 @@ void ALCPlayerCharacter::Die(AActor* Killer)
 
     // Hide weapon
     if (WeaponMesh) WeaponMesh->SetVisibility(false);
+}
+
+bool ALCPlayerCharacter::CanJumpInternal_Implementation() const
+{
+    return !bIsDead && !bIsParachuting;
 }
 
 // --- Movement ---
@@ -455,7 +457,7 @@ void ALCPlayerCharacter::PerformRaycast()
     QueryParams.AddIgnoredActor(this);
     if (CurrentVehicle) QueryParams.AddIgnoredActor(CurrentVehicle);
 
-    bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, End, ECC_Visibility, QueryParams);
+    bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, End, ECC_Pawn, QueryParams);
 
     FVector TracerStart = WeaponMesh ? WeaponMesh->GetComponentLocation() : (FPSCamera->GetComponentLocation() + Direction * 40.f);
     FVector TracerEnd = bHit ? Hit.Location : End;

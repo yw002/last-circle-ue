@@ -10,7 +10,9 @@ ALCBaseCharacter::ALCBaseCharacter()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-    GetCapsuleComponent()->InitCapsuleSize(30.f, 96.f);
+    GetCapsuleComponent()->InitCapsuleSize(40.f, 100.f);
+    GetCapsuleComponent()->SetCollisionObjectType(ECC_Pawn);
+    GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
 
     BodyMesh = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("BodyMesh"));
     BodyMesh->SetupAttachment(GetMesh());
@@ -21,18 +23,21 @@ ALCBaseCharacter::ALCBaseCharacter()
     HeadMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
     GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
-    GetCharacterMovement()->JumpZVelocity = 420.f;
-    GetCharacterMovement()->AirControl = 0.3f;
-    GetCharacterMovement()->MaxStepHeight = 120.f;
-    GetCharacterMovement()->GroundFriction = 6.f;
+    GetCharacterMovement()->JumpZVelocity = 520.f;
+    GetCharacterMovement()->AirControl = 0.35f;
+    GetCharacterMovement()->MaxStepHeight = 150.f;
+    GetCharacterMovement()->GroundFriction = 8.f;
     GetCharacterMovement()->BrakingDecelerationWalking = 1024.f;
     GetCharacterMovement()->bUseSeparateBrakingFriction = true;
-    GetCharacterMovement()->BrakingFriction = 1.f;
-    GetCharacterMovement()->PerchRadiusThreshold = 30.f;
-    GetCharacterMovement()->PerchAdditionalHeight = 50.f;
+    GetCharacterMovement()->BrakingFriction = 0.5f;
+    GetCharacterMovement()->PerchRadiusThreshold = 25.f;
+    GetCharacterMovement()->PerchAdditionalHeight = 60.f;
     GetCharacterMovement()->MaxWalkSpeedCrouched = BaseSpeed * 0.6f;
-    GetCharacterMovement()->SetWalkableFloorAngle(65.f);
+    GetCharacterMovement()->SetWalkableFloorAngle(70.f);
     GetCharacterMovement()->bAlwaysCheckFloor = true;
+    JumpMaxCount = 2;
+
+    GetMesh()->SetRelativeScale3D(FVector(1.1f));
 }
 
 void ALCBaseCharacter::BeginPlay()

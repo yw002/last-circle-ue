@@ -2,8 +2,10 @@
 #include "CoreMinimal.h"
 #include "Engine/DamageEvents.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Characters/LCBaseCharacter.h"
 #include "ProceduralMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "LCGiantBoss.generated.h"
 
 UCLASS()
@@ -19,8 +21,8 @@ public:
     virtual void BeginPlay() override
     {
         Super::BeginPlay();
+        GetCapsuleComponent()->SetCapsuleSize(120.f, 200.f);
         BuildGiantBody();
-        // Move toward safe zone center
         bMovingToZone = true;
     }
     virtual void Tick(float DeltaSeconds) override
@@ -32,7 +34,7 @@ public:
         if (bMovingToZone)
         {
             FVector Dir = (ZoneTarget - GetActorLocation()).GetSafeNormal();
-            AddMovementInput(Dir, 100.f * DeltaSeconds);
+            AddMovementInput(Dir, 1.f);
         }
 
         // Attack nearby player
