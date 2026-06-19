@@ -74,3 +74,5 @@ UE5_REBUILD_PROMPT.md
 UpgradeLog.htm
 build_out.txt
 build_out2.txt
+build_err.txt
+build_log.txt
