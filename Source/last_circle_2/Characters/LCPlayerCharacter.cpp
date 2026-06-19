@@ -13,6 +13,7 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/World.h"
 #include "Components/SphereComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "World/LCEnvironmentActor.h"
 #include "UI/LCHUDWidget.h"
 
@@ -73,18 +74,29 @@ void ALCPlayerCharacter::BeginPlay()
         VertexColorWeaponMat = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial"));
     }
 
-    // Create HUD
-    if (ALCPlayerController* PC = Cast<ALCPlayerController>(GetController()))
-    {
-        HUDWidget = PC->GetHUDWidget();
-    }
+    // Create HUD widget - guaranteed to work
     if (!HUDWidget)
     {
         HUDWidget = CreateWidget<ULCHUDWidget>(GetWorld(), ULCHUDWidget::StaticClass());
-        if (HUDWidget) HUDWidget->AddToViewport(0);
+        if (HUDWidget)
+        {
+            HUDWidget->AddToViewport(0);
+            FString AmmoText = FString::Printf(TEXT("HUD created OK"));
+            UE_LOG(LogTemp, Warning, TEXT("HUD: %s"), *AmmoText);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("HUD: FAILED to create widget!"));
+        }
     }
 
     LastPosition = GetActorLocation();
+
+    // Set initial total ammo to 300 BEFORE EquipWeapon so HUD picks it up
+    if (ALCPlayerState* PS = Cast<ALCPlayerState>(GetPlayerState()))
+    {
+        PS->AddAmmo(300);
+    }
 
     EquipWeapon(FName("AKM"));
 
@@ -441,10 +453,13 @@ void ALCPlayerCharacter::PerformRaycast()
 
     bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, End, ECC_Visibility, QueryParams);
 
-    FVector TracerStart = CameraLoc + Direction * 40.f;
+    FVector TracerStart = FPSCamera->GetComponentLocation() + Direction * 40.f;
     FVector TracerEnd = bHit ? Hit.Location : End;
-    DrawDebugLine(GetWorld(), TracerStart, TracerEnd, FColor(255, 120, 20), false, 0.15f, 0, 1.5f);
-    DrawDebugPoint(GetWorld(), TracerEnd, 5.f, FColor(255, 50, 0), false, 0.15f);
+    DrawDebugLine(GetWorld(), TracerStart, TracerEnd, FColor(255, 200, 0), false, 0.10f, 0, 3.0f);
+    if (bHit)
+    {
+        SpawnHitSpark(Hit.Location);
+    }
 
     if (bHit && Hit.GetActor())
     {
@@ -517,6 +532,45 @@ void ALCPlayerCharacter::SpawnMuzzleFlash()
     {
         if (IsValid(FlashMesh)) FlashMesh->DestroyComponent();
     }, 0.05f, false);
+}
+
+void ALCPlayerCharacter::SpawnHitSpark(const FVector& Location)
+{
+    UProceduralMeshComponent* Spark = NewObject<UProceduralMeshComponent>(this);
+    Spark->RegisterComponent();
+    Spark->SetWorldLocation(Location);
+    Spark->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
+    TArray<FColor> C; TArray<FVector2D> UV; TArray<FProcMeshTangent> Tan;
+
+    float R = 5.f;
+    float HalfR = R * 0.5f;
+    V.Add(FVector(0, 0, R));
+    V.Add(FVector(0, 0, -HalfR));
+    for (int32 i = 0; i < 8; ++i)
+    {
+        float A = 2.f * PI * i / 8;
+        V.Add(FVector(R * 0.5f * FMath::Cos(A), R * 0.5f * FMath::Sin(A), R * 0.3f));
+        C.Add(FColor(255, 220, 50, 255));
+        UV.Add(FVector2D::ZeroVector);
+    }
+    C.Add(FColor(255, 240, 150, 255)); UV.Add(FVector2D::ZeroVector);
+    C.Add(FColor(255, 160, 20, 255)); UV.Add(FVector2D::ZeroVector);
+    for (int32 i = 0; i < 8; ++i)
+    {
+        T.Add(0); T.Add(2 + i); T.Add(2 + ((i + 1) % 8));
+        T.Add(1); T.Add(2 + ((i + 1) % 8)); T.Add(2 + i);
+    }
+
+    Spark->CreateMeshSection(0, V, T, N, UV, C, Tan, false);
+    if (VertexColorWeaponMat) Spark->SetMaterial(0, UMaterialInstanceDynamic::Create(VertexColorWeaponMat, this));
+
+    FTimerHandle Handle;
+    GetWorldTimerManager().SetTimer(Handle, [Spark]()
+    {
+        if (IsValid(Spark)) Spark->DestroyComponent();
+    }, 0.06f, false);
 }
 
 void ALCPlayerCharacter::SpawnBloodEffect(const FVector& Location)

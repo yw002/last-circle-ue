@@ -4,6 +4,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 
 ALCBaseCharacter::ALCBaseCharacter()
 {
@@ -23,12 +24,13 @@ ALCBaseCharacter::ALCBaseCharacter()
     GetCharacterMovement()->JumpZVelocity = 420.f;
     GetCharacterMovement()->AirControl = 0.3f;
     GetCharacterMovement()->MaxStepHeight = 100.f;
-    GetCharacterMovement()->GroundFriction = 100.f;
-    GetCharacterMovement()->BrakingDecelerationWalking = 8192.f;
+    GetCharacterMovement()->GroundFriction = 4.f;
+    GetCharacterMovement()->BrakingDecelerationWalking = 1024.f;
     GetCharacterMovement()->bUseSeparateBrakingFriction = true;
-    GetCharacterMovement()->BrakingFriction = 100.f;
+    GetCharacterMovement()->BrakingFriction = 2.f;
     GetCharacterMovement()->PerchRadiusThreshold = 30.f;
     GetCharacterMovement()->PerchAdditionalHeight = 50.f;
+    GetCharacterMovement()->MaxWalkSpeedCrouched = BaseSpeed * 0.6f;
 }
 
 void ALCBaseCharacter::BeginPlay()

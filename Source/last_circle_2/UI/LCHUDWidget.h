@@ -6,10 +6,6 @@
 #include "Components/CanvasPanel.h"
 #include "Components/TextBlock.h"
 #include "Components/ProgressBar.h"
-#include "Components/Image.h"
-#include "Components/HorizontalBox.h"
-#include "Components/VerticalBox.h"
-#include "Components/SizeBox.h"
 #include "LCHUDWidget.generated.h"
 
 UCLASS()
@@ -23,70 +19,69 @@ public:
         RootCanvas = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootCanvas"));
         if (RootCanvas) WidgetTree->RootWidget = RootCanvas;
 
-        // Health bar (bottom-left)
+        // Health bar (bottom-left) - green bar
         HealthBar = WidgetTree->ConstructWidget<UProgressBar>(UProgressBar::StaticClass(), TEXT("HealthBar"));
         if (HealthBar)
         {
             HealthBar->SetFillColorAndOpacity(FLinearColor(0.1f, 0.9f, 0.1f));
+            HealthBar->SetPercent(1.f);
             UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(HealthBar));
-            if (S) { S->SetAnchors(FAnchors(0.02f, 0.92f, 0.25f, 0.955f)); S->SetAutoSize(false); }
+            if (S) { S->SetAnchors(FAnchors(0.02f, 0.92f, 0.25f, 0.955f)); }
         }
 
-        // Ammo text (bottom-center-right) - current / total
-        AmmoText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("AmmoText"));
-        if (AmmoText)
-        {
-            AmmoText->SetJustification(ETextJustify::Right);
-            AmmoText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
-            AmmoText->SetText(FText::FromString(TEXT("30 / 120")));
-            FSlateFontInfo Font = AmmoText->GetFont();
-            Font.Size = 36;
-            AmmoText->SetFont(Font);
-            UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(AmmoText));
-            if (S) { S->SetAnchors(FAnchors(0.78f, 0.88f, 0.98f, 0.97f)); S->SetAutoSize(true); S->SetAlignment(FVector2D(1.f, 1.f)); }
-        }
-
-        // Weapon name text (bottom-right, above ammo)
+        // Weapon name (bottom-right, above ammo) - gray
         WeaponNameText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("WeaponNameText"));
         if (WeaponNameText)
         {
             WeaponNameText->SetJustification(ETextJustify::Right);
             WeaponNameText->SetColorAndOpacity(FSlateColor(FLinearColor(0.7f, 0.7f, 0.7f)));
             WeaponNameText->SetText(FText::FromString(TEXT("AKM")));
-            FSlateFontInfo Font = WeaponNameText->GetFont();
-            Font.Size = 20;
-            WeaponNameText->SetFont(Font);
+            FSlateFontInfo Font = WeaponNameText->GetFont(); Font.Size = 20; WeaponNameText->SetFont(Font);
             UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(WeaponNameText));
             if (S) { S->SetAnchors(FAnchors(0.78f, 0.85f, 0.98f, 0.88f)); S->SetAutoSize(true); S->SetAlignment(FVector2D(1.f, 1.f)); }
         }
 
-        // Reloading text (center-bottom)
+        // Ammo text (bottom-right) - large white "30 / 300"
+        AmmoText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("AmmoText"));
+        if (AmmoText)
+        {
+            AmmoText->SetJustification(ETextJustify::Right);
+            AmmoText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+            AmmoText->SetText(FText::FromString(TEXT("30 / 300")));
+            FSlateFontInfo Font = AmmoText->GetFont(); Font.Size = 36; AmmoText->SetFont(Font);
+            UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(AmmoText));
+            if (S) { S->SetAnchors(FAnchors(0.78f, 0.88f, 0.98f, 0.97f)); S->SetAutoSize(true); S->SetAlignment(FVector2D(1.f, 1.f)); }
+        }
+
+        // Reloading text (center-bottom) - orange
         ReloadText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("ReloadText"));
         if (ReloadText)
         {
             ReloadText->SetColorAndOpacity(FSlateColor(FLinearColor(1.f, 0.8f, 0.f)));
-            ReloadText->SetText(FText::FromString(TEXT("")));
             ReloadText->SetVisibility(ESlateVisibility::Hidden);
-            FSlateFontInfo Font = ReloadText->GetFont();
-            Font.Size = 24;
-            ReloadText->SetFont(Font);
+            FSlateFontInfo Font = ReloadText->GetFont(); Font.Size = 24; ReloadText->SetFont(Font);
             UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(ReloadText));
             if (S) { S->SetAnchors(FAnchors(0.4f, 0.55f, 0.6f, 0.6f)); S->SetAutoSize(true); S->SetAlignment(FVector2D(0.5f, 0.5f)); }
         }
 
-        // Crosshair lines - 4 lines (top, bottom, left, right) around center
+        // Crosshair: 4 UTextBlock with box-drawing chars (always render, no texture needed)
         for (int32 i = 0; i < 4; ++i)
         {
-            CrosshairLines[i] = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), FName(*FString::Printf(TEXT("CrosshairLine%d"), i)));
-            if (CrosshairLines[i])
+            CrosshairTexts[i] = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), FName(*FString::Printf(TEXT("XHair%d"), i)));
+            if (CrosshairTexts[i])
             {
-                CrosshairLines[i]->SetColorAndOpacity(FLinearColor(0.1f, 1.f, 0.1f, 0.85f));
-                UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(CrosshairLines[i]));
-                if (S) { S->SetAnchors(FAnchors(0.5f, 0.5f, 0.5f, 0.5f)); S->SetAutoSize(false); }
+                CrosshairTexts[i]->SetColorAndOpacity(FSlateColor(FLinearColor(0.1f, 1.f, 0.1f, 0.9f)));
+                FSlateFontInfo Font = CrosshairTexts[i]->GetFont(); Font.Size = 18; CrosshairTexts[i]->SetFont(Font);
+                UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(CrosshairTexts[i]));
+                if (S) { S->SetAnchors(FAnchors(0.5f, 0.5f, 0.5f, 0.5f)); S->SetAutoSize(true); }
             }
         }
+        CrosshairTexts[0]->SetText(FText::FromString(TEXT("\xE2\x94\x82"))); // top "│"
+        CrosshairTexts[1]->SetText(FText::FromString(TEXT("\xE2\x94\x82"))); // bottom "│"
+        CrosshairTexts[2]->SetText(FText::FromString(TEXT("\xE2\x94\x80\xE2\x94\x80"))); // left "──"
+        CrosshairTexts[3]->SetText(FText::FromString(TEXT("\xE2\x94\x80\xE2\x94\x80"))); // right "──"
 
-        // Alive / Wave / KillFeed / Notifications (existing)
+        // Alive count (top-right)
         AliveText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("AliveText"));
         if (AliveText)
         {
@@ -94,73 +89,35 @@ public:
             UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(AliveText));
             if (S) { S->SetAnchors(FAnchors(0.9f, 0.02f, 1.f, 0.05f)); S->SetAutoSize(true); }
         }
-        WaveText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("WaveText"));
-        if (WaveText)
-        {
-            WaveText->SetColorAndOpacity(FSlateColor(FLinearColor::Yellow));
-            UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(WaveText));
-            if (S) { S->SetAnchors(FAnchors(0.4f, 0.02f, 0.6f, 0.05f)); S->SetAutoSize(true); }
-        }
-        NotificationText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("NotificationText"));
-        if (NotificationText)
-        {
-            NotificationText->SetColorAndOpacity(FSlateColor(FLinearColor::Green));
-            UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(NotificationText));
-            if (S) { S->SetAnchors(FAnchors(0.35f, 0.7f, 0.65f, 0.75f)); S->SetAutoSize(true); }
-        }
-        KillFeedText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("KillFeedText"));
-        if (KillFeedText)
-        {
-            KillFeedText->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
-            UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(RootCanvas->AddChildToCanvas(KillFeedText));
-            if (S) { S->SetAnchors(FAnchors(0.75f, 0.05f, 0.98f, 0.15f)); S->SetAutoSize(true); }
-        }
     }
 
     virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override
     {
         Super::NativeTick(MyGeometry, InDeltaTime);
-
-        // Update crosshair geometry
-        UpdateCrosshair(InDeltaTime);
-
-        if (NotificationText && NotifyDuration > 0.f)
-        {
-            NotifyDuration -= InDeltaTime;
-            if (NotifyDuration <= 0.f) NotificationText->SetVisibility(ESlateVisibility::Hidden);
-        }
+        UpdateCrosshair();
+        if (HitTimer > 0.f) { HitTimer -= InDeltaTime; if (HitTimer <= 0.f) bHitConfirmed = false; }
     }
 
-    void UpdateCrosshair(float DT)
+    void UpdateCrosshair()
     {
-        float LineLen = bIsADS ? 14.f : 22.f;
-        float Gap = (bIsADS ? 3.f : 6.f) + CurrentCrosshairSpread * (bIsADS ? 0.4f : 1.5f);
-        float Thick = bIsADS ? 2.5f : 3.f;
+        float LineLen = bIsADS ? 8.f : 14.f;
+        float Gap = (bIsADS ? 3.f : 5.f) + CurrentCrosshairSpread * (bIsADS ? 0.4f : 1.5f);
+        FLinearColor Col = bHitConfirmed ? FLinearColor(1.f, 0.2f, 0.2f, 0.9f) : FLinearColor(0.1f, 1.f, 0.1f, 0.9f);
 
-        FLinearColor Col = FLinearColor(0.1f, 1.f, 0.1f, 0.85f);
-        if (bHitConfirmed) { Col = FLinearColor(1.f, 0.2f, 0.2f, 0.9f); }
-
-        auto PosLine = [&](int32 Idx, float OX, float OY, float W, float H) {
-            if (!CrosshairLines[Idx]) return;
-            UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(CrosshairLines[Idx]->Slot);
-            if (!S) return;
-            S->SetOffsets(FMargin(OX - W * 0.5f, OY - H * 0.5f, OX + W * 0.5f, OY + H * 0.5f));
-            S->SetAnchors(FAnchors(0.5f, 0.5f, 0.5f, 0.5f));
-            CrosshairLines[Idx]->SetColorAndOpacity(Col);
+        auto SetPos = [&](int32 Idx, float OX, float OY, float W, float H) {
+            if (!CrosshairTexts[Idx]) return;
+            CrosshairTexts[Idx]->SetColorAndOpacity(FSlateColor(Col));
+            UCanvasPanelSlot* S = Cast<UCanvasPanelSlot>(CrosshairTexts[Idx]->Slot);
+            if (S) S->SetOffsets(FMargin(OX - W, OY, OX + W, OY));
         };
 
-        float VCenter = 0.f;
-        PosLine(0, 0.f, VCenter - Gap - LineLen, Thick, LineLen);  // top
-        PosLine(1, 0.f, VCenter + Gap, Thick, LineLen);             // bottom
-        PosLine(2, VCenter - Gap - LineLen, 0.f, LineLen, Thick);   // left
-        PosLine(3, VCenter + Gap, 0.f, LineLen, Thick);             // right
+        SetPos(0, 0.f, 0.f - Gap - LineLen, 3.f, 2.f);   // top "│"
+        SetPos(1, 0.f, 0.f + Gap, 3.f, 2.f);              // bottom "│"
+        SetPos(2, 0.f - Gap - LineLen, 0.f, 4.f, 2.f);    // left "──"
+        SetPos(3, 0.f + Gap, 0.f, 4.f, 2.f);              // right "──"
     }
 
-    UFUNCTION(BlueprintCallable)
-    void UpdateHealth(float Percent)
-    {
-        if (HealthBar) HealthBar->SetPercent(Percent);
-    }
+    UFUNCTION(BlueprintCallable) void UpdateHealth(float Percent) { if (HealthBar) HealthBar->SetPercent(Percent); }
 
     UFUNCTION(BlueprintCallable)
     void UpdateWeaponInfo(const FString& WeaponName, int32 AmmoInMag, int32 TotalAmmo)
@@ -174,63 +131,20 @@ public:
     {
         if (ReloadText)
         {
-            if (bReloading)
-            {
-                ReloadText->SetVisibility(ESlateVisibility::Visible);
-                ReloadText->SetText(FText::FromString(TEXT("RELOADING...")));
-            }
-            else
-            {
-                ReloadText->SetVisibility(ESlateVisibility::Hidden);
-            }
+            if (bReloading) { ReloadText->SetVisibility(ESlateVisibility::Visible); ReloadText->SetText(FText::FromString(TEXT("RELOADING..."))); }
+            else { ReloadText->SetVisibility(ESlateVisibility::Hidden); }
         }
     }
 
-    UFUNCTION(BlueprintCallable)
-    void SetCrosshairSpread(float Spread) { CurrentCrosshairSpread = Spread; }
-    UFUNCTION(BlueprintCallable)
-    void SetCrosshairADS(bool bADS) { bIsADS = bADS; }
-    UFUNCTION(BlueprintCallable)
-    void SetCrosshairHit(bool bHit) { bHitConfirmed = bHit; }
+    UFUNCTION(BlueprintCallable) void SetCrosshairSpread(float Spread) { CurrentCrosshairSpread = Spread; }
+    UFUNCTION(BlueprintCallable) void SetCrosshairADS(bool bADS) { bIsADS = bADS; }
+    UFUNCTION(BlueprintCallable) void SetCrosshairHit(bool bHit) { bHitConfirmed = bHit; HitTimer = 0.3f; }
 
     UFUNCTION(BlueprintCallable)
-    void UpdateAliveCount(int32 Count)
-    {
-        if (AliveText) AliveText->SetText(FText::FromString(FString::Printf(TEXT("Alive: %d"), Count)));
-    }
+    void ShowNotification(const FString& Message, float Duration);
+
     UFUNCTION(BlueprintCallable)
-    void UpdateWaveInfo(int32 Wave)
-    {
-        if (WaveText) WaveText->SetText(FText::FromString(FString::Printf(TEXT("Wave %d / 20"), Wave)));
-    }
-    UFUNCTION(BlueprintCallable)
-    void ShowNotification(const FString& Message, float Duration)
-    {
-        if (NotificationText)
-        {
-            NotificationText->SetText(FText::FromString(Message));
-            NotificationText->SetVisibility(ESlateVisibility::Visible);
-            NotifyDuration = Duration;
-        }
-    }
-    UFUNCTION(BlueprintCallable)
-    void AddKillFeedEntry(const FString& Killer, const FString& Victim, const FString& Weapon, bool bHeadshot)
-    {
-        if (KillFeedText)
-        {
-            FString Entry = FString::Printf(TEXT("[%s] %s -> %s%s"), *Weapon, *Killer, *Victim, bHeadshot ? TEXT(" HS") : TEXT(""));
-            KillFeedEntries.Add(Entry);
-            if (KillFeedEntries.Num() > 5) KillFeedEntries.RemoveAt(0);
-            FString Display;
-            for (const FString& E : KillFeedEntries) Display += E + TEXT("\n");
-            KillFeedText->SetText(FText::FromString(Display));
-        }
-    }
-    UFUNCTION(BlueprintCallable)
-    void OnHitConfirmed(bool bHeadshot)
-    {
-        bHitConfirmed = true;
-    }
+    void AddKillFeedEntry(const FString& Killer, const FString& Victim, const FString& Weapon, bool bHeadshot);
 
 private:
     UPROPERTY() UCanvasPanel* RootCanvas = nullptr;
@@ -239,13 +153,9 @@ private:
     UPROPERTY() UTextBlock* AmmoText = nullptr;
     UPROPERTY() UTextBlock* ReloadText = nullptr;
     UPROPERTY() UTextBlock* AliveText = nullptr;
-    UPROPERTY() UTextBlock* WaveText = nullptr;
-    UPROPERTY() UTextBlock* NotificationText = nullptr;
-    UPROPERTY() UTextBlock* KillFeedText = nullptr;
-    UPROPERTY() UImage* CrosshairLines[4] = {};
-    UPROPERTY() float NotifyDuration = 0.f;
-    UPROPERTY() TArray<FString> KillFeedEntries;
+    UPROPERTY() UTextBlock* CrosshairTexts[4] = {};
     UPROPERTY() float CurrentCrosshairSpread = 0.f;
     UPROPERTY() bool bIsADS = false;
     UPROPERTY() bool bHitConfirmed = false;
+    UPROPERTY() float HitTimer = 0.f;
 };

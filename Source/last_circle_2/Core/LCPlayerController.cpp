@@ -248,7 +248,7 @@ void ALCPlayerController::OnHitConfirmed(bool bIsHeadshot)
 {
     if (HUDWidget)
     {
-        HUDWidget->OnHitConfirmed(bIsHeadshot);
+        HUDWidget->SetCrosshairHit(true);
     }
 }
 

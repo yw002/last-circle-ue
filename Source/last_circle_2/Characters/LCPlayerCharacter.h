@@ -199,6 +199,7 @@ protected:
     void PerformRaycast();
     void ApplyDamage(AActor* HitActor, float Damage, bool bIsHeadshot, const FVector& HitLocation);
     void SpawnMuzzleFlash();
+    void SpawnHitSpark(const FVector& Location);
     void SpawnBloodEffect(const FVector& Location);
     void SpawnBulletHole(const FVector& Location, const FVector& Normal);
     void SpawnShellEjection();
