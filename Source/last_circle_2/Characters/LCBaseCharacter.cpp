@@ -26,15 +26,16 @@ ALCBaseCharacter::ALCBaseCharacter()
     GetCharacterMovement()->JumpZVelocity = 520.f;
     GetCharacterMovement()->AirControl = 0.35f;
     GetCharacterMovement()->MaxStepHeight = 150.f;
-    GetCharacterMovement()->GroundFriction = 8.f;
-    GetCharacterMovement()->BrakingDecelerationWalking = 1024.f;
-    GetCharacterMovement()->bUseSeparateBrakingFriction = true;
-    GetCharacterMovement()->BrakingFriction = 0.5f;
-    GetCharacterMovement()->PerchRadiusThreshold = 25.f;
-    GetCharacterMovement()->PerchAdditionalHeight = 60.f;
+    GetCharacterMovement()->GroundFriction = 32.f;
+    GetCharacterMovement()->BrakingDecelerationWalking = 4096.f;
+    GetCharacterMovement()->bUseSeparateBrakingFriction = false;
+    GetCharacterMovement()->BrakingFrictionFactor = 2.f;
+    GetCharacterMovement()->PerchRadiusThreshold = 10.f;
+    GetCharacterMovement()->PerchAdditionalHeight = 30.f;
     GetCharacterMovement()->MaxWalkSpeedCrouched = BaseSpeed * 0.6f;
     GetCharacterMovement()->SetWalkableFloorAngle(70.f);
     GetCharacterMovement()->bAlwaysCheckFloor = true;
+    GetCharacterMovement()->bCanWalkOffLedgesWhenCrouching = true;
     JumpMaxCount = 2;
 }
 

@@ -117,8 +117,7 @@ void ALCGameMode::BeginPlay()
     UE_LOG(LogTemp, Warning, TEXT("EnvironmentActor: %s"), Env ? TEXT("OK") : TEXT("FAILED"));
 
     UE_LOG(LogTemp, Warning, TEXT("Spawning buildings..."));
-    // BuildingGenerator disabled for performance (200+ buildings = 200+ collision bodies)
-    // GetWorld()->SpawnActor<ALCBuildingGenerator>(ALCBuildingGenerator::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+    GetWorld()->SpawnActor<ALCBuildingGenerator>(ALCBuildingGenerator::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
 
     UE_LOG(LogTemp, Warning, TEXT("Spawning system managers..."));
     // ALL systems disabled for performance debugging.

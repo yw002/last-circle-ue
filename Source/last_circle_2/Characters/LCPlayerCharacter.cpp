@@ -106,6 +106,17 @@ void ALCPlayerCharacter::Tick(float DeltaSeconds)
 
     if (bIsDead) return;
 
+    // Anti-slide: kill residual velocity on slopes when no input
+    if (GetCharacterMovement()->IsMovingOnGround() && FMath::IsNearlyZero(InputForward) && FMath::IsNearlyZero(InputRight))
+    {
+        FVector Vel = GetVelocity();
+        Vel.Z = 0.f;
+        if (Vel.SizeSquared2D() < 400.f)
+        {
+            GetCharacterMovement()->Velocity = FVector::ZeroVector;
+        }
+    }
+
     UpdateSlateCrosshair();
 
     // Update wave info display
