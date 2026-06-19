@@ -15,29 +15,33 @@ public:
     ALCGhostCharacter()
     {
         PrimaryActorTick.bCanEverTick = true;
-        Health = 1.f; MaxHealth = 1.f; // Ghosts are not killable
+        Health = 1.f; MaxHealth = 1.f;
+        BaseSpeed = 100.f;
         GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     }
     virtual void BeginPlay() override
     {
         Super::BeginPlay();
-        BodyMesh->SetVisibility(true);
-        // Semi-transparent appearance
+        BuildProceduralBody(FColor(180, 210, 255), FColor(140, 180, 240));
+        ApplyVertexColorMaterial();
         if (BodyMesh)
         {
-            UMaterialInterface* Mat = BodyMesh->GetMaterial(0);
-            if (Mat)
+            for (int32 i = 0; i < BodyMesh->GetNumSections(); ++i)
             {
-                UMaterialInstanceDynamic* DynMat = UMaterialInstanceDynamic::Create(Mat, this);
-                if (DynMat)
-                {
-                    DynMat->SetScalarParameterValue(FName("Opacity"), 0.3f);
-                    BodyMesh->SetMaterial(0, DynMat);
-                }
+                UMaterialInstanceDynamic* DynMat = UMaterialInstanceDynamic::Create(BodyMesh->GetMaterial(i), this);
+                if (DynMat) { DynMat->SetScalarParameterValue(FName("Opacity"), 0.35f); BodyMesh->SetMaterial(i, DynMat); }
             }
         }
-        bIsVisible = false;
-        AppearTimer = FMath::RandRange(5.f, 15.f);
+        if (HeadMesh)
+        {
+            for (int32 i = 0; i < HeadMesh->GetNumSections(); ++i)
+            {
+                UMaterialInstanceDynamic* DynMat = UMaterialInstanceDynamic::Create(HeadMesh->GetMaterial(i), this);
+                if (DynMat) { DynMat->SetScalarParameterValue(FName("Opacity"), 0.35f); HeadMesh->SetMaterial(i, DynMat); }
+            }
+        }
+        bIsVisible = true;
+        AppearTimer = FMath::RandRange(3.f, 8.f);
     }
     virtual void Tick(float DeltaSeconds) override
     {
@@ -58,9 +62,9 @@ public:
             {
                 FVector Dir = (PC->GetPawn()->GetActorLocation() - GetActorLocation()).GetSafeNormal();
                 float Dist = FVector::Dist(GetActorLocation(), PC->GetPawn()->GetActorLocation());
-                if (Dist < 150.f && Dist > 20.f)
+                if (Dist < 400.f && Dist > 20.f)
                 {
-                    AddMovementInput(Dir, 0.2f);
+                    AddMovementInput(Dir, 0.5f);
                 }
                 // Always face player
                 FRotator LookAt = (PC->GetPawn()->GetActorLocation() - GetActorLocation()).Rotation();

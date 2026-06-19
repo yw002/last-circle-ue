@@ -2,6 +2,8 @@
 #include "CoreMinimal.h"
 #include "Engine/DamageEvents.h"
 #include "Characters/LCBaseCharacter.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "LCBotCharacter.generated.h"
 
 UENUM() enum class EBotState : uint8 { Wander, Attack, Dance };
@@ -15,6 +17,7 @@ public:
     {
         PrimaryActorTick.bCanEverTick = true;
         Health = 200.f; MaxHealth = 200.f;
+        BaseSpeed = 400.f;
     }
     virtual void BeginPlay() override
     {
@@ -22,6 +25,8 @@ public:
         FColor Skin(FMath::RandRange(100,220), FMath::RandRange(100,220), FMath::RandRange(100,220));
         FColor Cloth(FMath::RandRange(40,200), FMath::RandRange(40,200), FMath::RandRange(40,200));
         BuildProceduralBody(Skin, Cloth);
+        ApplyVertexColorMaterial();
+        GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
         // Random equipment
         HelmetLevel = static_cast<EEquipmentLevel>(FMath::RandRange(0, 3));
         ArmorLevel = static_cast<EEquipmentLevel>(FMath::RandRange(0, 3));

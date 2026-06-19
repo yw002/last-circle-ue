@@ -36,14 +36,14 @@ ALCBaseCharacter::ALCBaseCharacter()
     GetCharacterMovement()->SetWalkableFloorAngle(70.f);
     GetCharacterMovement()->bAlwaysCheckFloor = true;
     JumpMaxCount = 2;
-
-    GetMesh()->SetRelativeScale3D(FVector(1.1f));
 }
 
 void ALCBaseCharacter::BeginPlay()
 {
     Super::BeginPlay();
     Health = MaxHealth * HealthMultiplier;
+
+    VertexColorMaterial = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
 }
 
 float ALCBaseCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
@@ -150,21 +150,30 @@ void ALCBaseCharacter::BuildProceduralBody(const FColor& SkinColor, const FColor
     BodyMesh->ClearAllMeshSections();
     HeadMesh->ClearAllMeshSections();
 
-    // Torso (box)
-    BuildBodyPart(BodyMesh, FVector(0.f, 0.f, 0.f), FVector(12.f, 18.f, 28.f), ClothColor);
+    // Torso (box) - enlarged for 40-radius capsule
+    BuildBodyPart(BodyMesh, FVector(0.f, 0.f, 0.f), FVector(16.f, 22.f, 32.f), ClothColor);
 
     // Left arm
-    BuildBodyPart(BodyMesh, FVector(0.f, -16.f, 5.f), FVector(6.f, 6.f, 24.f), SkinColor);
+    BuildBodyPart(BodyMesh, FVector(0.f, -18.f, 6.f), FVector(8.f, 8.f, 28.f), SkinColor);
     // Right arm
-    BuildBodyPart(BodyMesh, FVector(0.f, 16.f, 5.f), FVector(6.f, 6.f, 24.f), SkinColor);
+    BuildBodyPart(BodyMesh, FVector(0.f, 18.f, 6.f), FVector(8.f, 8.f, 28.f), SkinColor);
 
     // Left leg
-    BuildBodyPart(BodyMesh, FVector(0.f, -6.f, -22.f), FVector(7.f, 7.f, 28.f), ClothColor);
+    BuildBodyPart(BodyMesh, FVector(0.f, -7.f, -24.f), FVector(9.f, 9.f, 32.f), ClothColor);
     // Right leg
-    BuildBodyPart(BodyMesh, FVector(0.f, 6.f, -22.f), FVector(7.f, 7.f, 28.f), ClothColor);
+    BuildBodyPart(BodyMesh, FVector(0.f, 7.f, -24.f), FVector(9.f, 9.f, 32.f), ClothColor);
 
     // Head (sphere approximation)
-    BuildHead(HeadMesh, FVector(0.f, 0.f, 24.f), 10.f, SkinColor);
+    BuildHead(HeadMesh, FVector(0.f, 0.f, 28.f), 12.f, SkinColor);
+}
+
+void ALCBaseCharacter::ApplyVertexColorMaterial()
+{
+    if (!VertexColorMaterial) return;
+    if (BodyMesh) for (int32 i = 0; i < BodyMesh->GetNumSections(); ++i)
+        BodyMesh->SetMaterial(i, UMaterialInstanceDynamic::Create(VertexColorMaterial, this));
+    if (HeadMesh) for (int32 i = 0; i < HeadMesh->GetNumSections(); ++i)
+        HeadMesh->SetMaterial(i, UMaterialInstanceDynamic::Create(VertexColorMaterial, this));
 }
 
 void ALCBaseCharacter::BuildBodyPart(UProceduralMeshComponent* InMesh, const FVector& Offset,

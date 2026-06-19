@@ -6,6 +6,7 @@
 #include "Characters/LCBaseCharacter.h"
 #include "ProceduralMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "LCGiantBoss.generated.h"
 
 UCLASS()
@@ -17,40 +18,39 @@ public:
     {
         PrimaryActorTick.bCanEverTick = true;
         Health = 5000.f; MaxHealth = 5000.f;
+        BaseSpeed = 150.f;
     }
     virtual void BeginPlay() override
     {
         Super::BeginPlay();
         GetCapsuleComponent()->SetCapsuleSize(120.f, 200.f);
         BuildGiantBody();
-        bMovingToZone = true;
+        if (VertexColorMaterial && BodyMesh)
+            BodyMesh->SetMaterial(0, UMaterialInstanceDynamic::Create(VertexColorMaterial, this));
+        bMovingToZone = false;
     }
     virtual void Tick(float DeltaSeconds) override
     {
         Super::Tick(DeltaSeconds);
         if (bIsDead) return;
 
-        // Move toward zone center
-        if (bMovingToZone)
-        {
-            FVector Dir = (ZoneTarget - GetActorLocation()).GetSafeNormal();
-            AddMovementInput(Dir, 1.f);
-        }
+        APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+        if (!PC || !PC->GetPawn()) return;
+
+        FVector PlayerLoc = PC->GetPawn()->GetActorLocation();
+        FVector Dir = (PlayerLoc - GetActorLocation()).GetSafeNormal();
+        AddMovementInput(Dir, 1.f);
 
         // Attack nearby player
         AttackCooldown -= DeltaSeconds;
         if (AttackCooldown <= 0.f)
         {
-            APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
-            if (PC && PC->GetPawn())
+            float Dist = FVector::Dist(GetActorLocation(), PlayerLoc);
+            if (Dist < 1200.f)
             {
-                float Dist = FVector::Dist(GetActorLocation(), PC->GetPawn()->GetActorLocation());
-                if (Dist < 800.f)
-                {
-                    FDamageEvent DmgEvent;
-                    PC->GetPawn()->TakeDamage(3.f, DmgEvent, GetController(), this);
-                    AttackCooldown = 2.f;
-                }
+                FDamageEvent DmgEvent;
+                PC->GetPawn()->TakeDamage(10.f, DmgEvent, GetController(), this);
+                AttackCooldown = 1.5f;
             }
         }
 

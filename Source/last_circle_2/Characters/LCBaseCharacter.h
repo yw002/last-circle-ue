@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "Engine/DamageEvents.h"
@@ -60,9 +60,11 @@ public:
     UFUNCTION(BlueprintCallable)
     float GetArmorReduction() const;
 
-    // Procedural body model
     UFUNCTION(BlueprintCallable)
     void BuildProceduralBody(const FColor& SkinColor, const FColor& ClothColor);
+
+    UFUNCTION(BlueprintCallable)
+    void ApplyVertexColorMaterial();
 
     UFUNCTION(BlueprintCallable)
     void FlashRed(float Duration = 0.15f);
@@ -94,6 +96,9 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
     UProceduralMeshComponent* HeadMesh = nullptr;
+
+    UPROPERTY()
+    UMaterial* VertexColorMaterial = nullptr;
 
     UPROPERTY()
     bool bIsDead = false;

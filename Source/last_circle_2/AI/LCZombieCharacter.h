@@ -22,6 +22,8 @@ public:
     {
         Super::BeginPlay();
         BuildProceduralBody(FColor(100, 140, 80), FColor(60, 80, 40));
+        ApplyVertexColorMaterial();
+        GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
     }
     virtual void Tick(float DeltaSeconds) override
     {
