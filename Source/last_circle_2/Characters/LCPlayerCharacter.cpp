@@ -479,15 +479,31 @@ void ALCPlayerCharacter::SpawnMuzzleFlash()
     if (!FPSCamera || !WeaponMesh) return;
     FVector BarrelTip = WeaponMesh->GetComponentTransform().TransformPosition(FVector(35.f, 0.f, 0.f));
 
-    DrawDebugSphere(GetWorld(), BarrelTip, 10.f, 12, FColor(255, 240, 100), false, 0.04f);
-    for (int32 i = 0; i < 4; ++i)
+    UProceduralMeshComponent* Flash = NewObject<UProceduralMeshComponent>(this);
+    Flash->RegisterComponent();
+    Flash->SetWorldLocation(BarrelTip);
+    Flash->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
+    TArray<FColor> C; TArray<FVector2D> UV; TArray<FProcMeshTangent> Tan;
+
+    float S = 8.f;
+    V.Add(FVector(0, -S, -S));
+    V.Add(FVector(0, S, -S));
+    V.Add(FVector(0, S, S));
+    V.Add(FVector(0, -S, S));
+    for (int32 i = 0; i < 4; ++i) { C.Add(FColor(255, 240, 150)); UV.Add(FVector2D::ZeroVector); }
+    T.Add(0); T.Add(1); T.Add(2);
+    T.Add(0); T.Add(2); T.Add(3);
+
+    Flash->CreateMeshSection(0, V, T, N, UV, C, Tan, false);
+    if (VertexColorWeaponMat) Flash->SetMaterial(0, UMaterialInstanceDynamic::Create(VertexColorWeaponMat, this));
+
+    FTimerHandle Handle;
+    GetWorldTimerManager().SetTimer(Handle, [Flash]()
     {
-        float A = FMath::FRandRange(0.f, PI * 2.f);
-        float E = FMath::FRandRange(5.f, 15.f);
-        FVector Dir = FPSCamera->GetForwardVector() + FVector(FMath::Cos(A) * 0.3f, FMath::Sin(A) * 0.3f, 0.2f);
-        Dir.Normalize();
-        DrawDebugLine(GetWorld(), BarrelTip, BarrelTip + Dir * E, FColor(255, 220, 50), false, 0.04f, 0, 1.0f);
-    }
+        if (IsValid(Flash)) Flash->DestroyComponent();
+    }, 0.04f, false);
 }
 
 void ALCPlayerCharacter::SpawnBloodEffect(const FVector& Location)
@@ -1047,12 +1063,9 @@ void ALCPlayerCharacter::InitSlateUI()
     if (bUIInitialized) return;
     if (!GEngine || !GEngine->GameViewport) return;
 
-    FSlateFontInfo BigFont;
-    BigFont.Size = 30;
-    FSlateFontInfo MedFont;
-    MedFont.Size = 16;
-    FSlateFontInfo XFont;
-    XFont.Size = 16;
+    UObject* FontObj = LoadObject<UObject>(nullptr, TEXT("/Engine/EngineFonts/Roboto.Roboto"));
+    FSlateFontInfo BigFont(FontObj, 30);
+    FSlateFontInfo MedFont(FontObj, 14);
 
     SAssignNew(SlateAmmoText, STextBlock)
         .Font(BigFont)
@@ -1071,27 +1084,37 @@ void ALCPlayerCharacter::InitSlateUI()
         .ColorAndOpacity(FLinearColor(1.f, 0.8f, 0.f))
         .Visibility(EVisibility::Hidden);
 
-    SAssignNew(SlateCrossTop, STextBlock)
-        .Font(XFont).ColorAndOpacity(FLinearColor(0.f, 1.f, 0.f, 0.85f))
-        .Text(FText::FromString(TEXT("|")));
-    SAssignNew(SlateCrossBot, STextBlock)
-        .Font(XFont).ColorAndOpacity(FLinearColor(0.f, 1.f, 0.f, 0.85f))
-        .Text(FText::FromString(TEXT("|")));
-    SAssignNew(SlateCrossLeft, STextBlock)
-        .Font(XFont).ColorAndOpacity(FLinearColor(0.f, 1.f, 0.f, 0.85f))
-        .Text(FText::FromString(TEXT("--")));
-    SAssignNew(SlateCrossRight, STextBlock)
-        .Font(XFont).ColorAndOpacity(FLinearColor(0.f, 1.f, 0.f, 0.85f))
-        .Text(FText::FromString(TEXT("--")));
+    // Crosshair = 4 colored rectangles (SBox), no characters
+    auto MakeCrossBar = []() -> TSharedRef<SBox> {
+        return SNew(SBox).WidthOverride(2.f).HeightOverride(14.f)
+            [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
+    };
+    auto MakeCrossBarH = []() -> TSharedRef<SBox> {
+        return SNew(SBox).WidthOverride(14.f).HeightOverride(2.f)
+            [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
+    };
+
+    SlateCrossTop = MakeCrossBar();
+    SlateCrossBot = MakeCrossBar();
+    SlateCrossLeft = MakeCrossBarH();
+    SlateCrossRight = MakeCrossBarH();
 
     SAssignNew(SlateHUD, SOverlay)
     + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
     [
-        SNew(SOverlay)
-        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[SlateCrossTop.ToSharedRef()]
-        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[SlateCrossBot.ToSharedRef()]
-        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[SlateCrossLeft.ToSharedRef()]
-        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[SlateCrossRight.ToSharedRef()]
+        SNew(SCanvas)
+        + SCanvas::Slot().Position(TAttribute<FVector2D>(FVector2D(0.f, 0.f)))
+          .Size(TAttribute<FVector2D>(FVector2D(2.f, 14.f)))
+          [SlateCrossTop.ToSharedRef()]
+        + SCanvas::Slot().Position(TAttribute<FVector2D>(FVector2D(0.f, 0.f)))
+          .Size(TAttribute<FVector2D>(FVector2D(2.f, 14.f)))
+          [SlateCrossBot.ToSharedRef()]
+        + SCanvas::Slot().Position(TAttribute<FVector2D>(FVector2D(0.f, 0.f)))
+          .Size(TAttribute<FVector2D>(FVector2D(14.f, 2.f)))
+          [SlateCrossLeft.ToSharedRef()]
+        + SCanvas::Slot().Position(TAttribute<FVector2D>(FVector2D(0.f, 0.f)))
+          .Size(TAttribute<FVector2D>(FVector2D(14.f, 2.f)))
+          [SlateCrossRight.ToSharedRef()]
     ]
     + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(0, 0, 30, 30)
     [
@@ -1110,11 +1133,31 @@ void ALCPlayerCharacter::UpdateSlateCrosshair()
 {
     if (!bUIInitialized) { InitSlateUI(); if (!bUIInitialized) return; }
 
-    float Gap = (bIsADS ? 3.f : 5.f) + CurrentSpread * (bIsADS ? 1.f : 2.5f);
-    float Len = bIsADS ? 6.f : 10.f;
+    float TargetGap = (bIsADS ? 4.f : 8.f) + CurrentSpread * (bIsADS ? 1.5f : 3.f);
+    float TargetLen = bIsADS ? 8.f : 14.f;
 
-    if (SlateCrossTop.IsValid())    SlateCrossTop->SetRenderTransform(FSlateRenderTransform(FVector2D(0.f, -Gap - Len)));
-    if (SlateCrossBot.IsValid())    SlateCrossBot->SetRenderTransform(FSlateRenderTransform(FVector2D(0.f, Gap)));
-    if (SlateCrossLeft.IsValid())   SlateCrossLeft->SetRenderTransform(FSlateRenderTransform(FVector2D(-Gap - Len * 2.f, -8.f)));
-    if (SlateCrossRight.IsValid())  SlateCrossRight->SetRenderTransform(FSlateRenderTransform(FVector2D(Gap, -8.f)));
+    CrosshairGap = FMath::FInterpTo(CrosshairGap, TargetGap, 0.016f, 10.f);
+    CrosshairLen = FMath::FInterpTo(CrosshairLen, TargetLen, 0.016f, 10.f);
+
+    FLinearColor Col = FLinearColor(0.f, 1.f, 0.f, 0.85f);
+    auto SetBar = [&](TSharedPtr<SBox>& Bar, bool bHorizontal, float PosX, float PosY) {
+        if (!Bar.IsValid()) return;
+        TSharedRef<SBorder> Border = StaticCastSharedRef<SBorder>(Bar->GetChildren()->GetChildAt(0));
+        Border->SetBorderBackgroundColor(Col);
+        if (bHorizontal)
+        {
+            Bar->SetWidthOverride(CrosshairLen);
+            Bar->SetHeightOverride(2.f);
+        }
+        else
+        {
+            Bar->SetWidthOverride(2.f);
+            Bar->SetHeightOverride(CrosshairLen);
+        }
+    };
+
+    SetBar(SlateCrossTop, false, 0.f, 0.f);
+    SetBar(SlateCrossBot, false, 0.f, 0.f);
+    SetBar(SlateCrossLeft, true, 0.f, 0.f);
+    SetBar(SlateCrossRight, true, 0.f, 0.f);
 }

@@ -12,7 +12,7 @@ class UInputAction;
 class UInputMappingContext;
 class SOverlay;
 class STextBlock;
-class SCanvas;
+class SBox;
 class SBorder;
 
 UCLASS()
@@ -179,7 +179,9 @@ protected:
     TSharedPtr<STextBlock> SlateAmmoText;
     TSharedPtr<STextBlock> SlateWeaponText;
     TSharedPtr<STextBlock> SlateReloadText;
-    TSharedPtr<STextBlock> SlateCrossTop, SlateCrossBot, SlateCrossLeft, SlateCrossRight;
+    TSharedPtr<SBox> SlateCrossTop, SlateCrossBot, SlateCrossLeft, SlateCrossRight;
+    float CrosshairGap = 8.f;
+    float CrosshairLen = 14.f;
     bool bUIInitialized = false;
 
     UPROPERTY()
