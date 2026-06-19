@@ -474,12 +474,12 @@ void ALCPlayerCharacter::PerformRaycast()
 
     bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, End, ECC_Visibility, QueryParams);
 
-    FVector TracerStart = FPSCamera->GetComponentLocation() + Direction * 40.f;
+    FVector TracerStart = WeaponMesh ? WeaponMesh->GetComponentLocation() : (FPSCamera->GetComponentLocation() + Direction * 40.f);
     FVector TracerEnd = bHit ? Hit.Location : End;
-    DrawDebugLine(GetWorld(), TracerStart, TracerEnd, FColor(255, 200, 0), false, 0.12f, 0, 4.0f);
+    DrawDebugLine(GetWorld(), TracerStart, TracerEnd, FColor(255, 220, 0), false, 0.12f, 0, 4.0f);
     if (bHit)
     {
-        DrawDebugSphere(GetWorld(), Hit.Location, 3.f, 6, FColor(255, 180, 0), false, 0.10f);
+        DrawDebugSphere(GetWorld(), Hit.Location, 3.f, 6, FColor(255, 200, 0), false, 0.10f);
     }
 
     if (bHit && Hit.GetActor())
