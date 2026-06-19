@@ -134,7 +134,7 @@ ALCExplosionEffect::ALCExplosionEffect()
     ExplosionMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     BuildExplosionMesh();
 
-    ExplosionLight = NewObject<UPointLightComponent>(this, TEXT("ExplosionLight"));
+    ExplosionLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("ExplosionLight"));
     ExplosionLight->SetupAttachment(RootComponent);
     ExplosionLight->SetIntensity(5000.f);
     ExplosionLight->SetLightColor(FLinearColor(1.f, 0.5f, 0.1f));
