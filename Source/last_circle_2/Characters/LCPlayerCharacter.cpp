@@ -15,7 +15,13 @@
 #include "Components/SphereComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "World/LCEnvironmentActor.h"
-#include "UI/LCHUDWidget.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/SCanvas.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Styling/CoreStyle.h"
+#include "Engine/GameViewportClient.h"
 
 ALCPlayerCharacter::ALCPlayerCharacter()
 {
@@ -74,28 +80,8 @@ void ALCPlayerCharacter::BeginPlay()
         VertexColorWeaponMat = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial"));
     }
 
-    // HUD: MUST use PlayerController as owner for WidgetTree to initialize
-    if (ALCPlayerController* PC = Cast<ALCPlayerController>(GetController()))
-    {
-        HUDWidget = PC->GetHUDWidget();
-        if (!HUDWidget)
-        {
-            HUDWidget = CreateWidget<ULCHUDWidget>(PC, ULCHUDWidget::StaticClass());
-            if (HUDWidget)
-            {
-                HUDWidget->AddToViewport(0);
-                UE_LOG(LogTemp, Warning, TEXT("HUD: created via PlayerController"));
-            }
-            else
-            {
-                UE_LOG(LogTemp, Error, TEXT("HUD: CreateWidget FAILED!"));
-            }
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("HUD: No PlayerController yet!"));
-    }
+    // Slate UI - create overlay with text widgets pushed to game viewport
+    InitSlateUI();
 
     LastPosition = GetActorLocation();
 
@@ -122,19 +108,7 @@ void ALCPlayerCharacter::Tick(float DeltaSeconds)
 
     if (bIsDead) return;
 
-    // Retry HUD creation if it failed in BeginPlay
-    if (!HUDWidget)
-    {
-        if (ALCPlayerController* PC = Cast<ALCPlayerController>(GetController()))
-        {
-            HUDWidget = PC->GetHUDWidget();
-            if (!HUDWidget)
-            {
-                HUDWidget = CreateWidget<ULCHUDWidget>(PC, ULCHUDWidget::StaticClass());
-                if (HUDWidget) HUDWidget->AddToViewport(0);
-            }
-        }
-    }
+    UpdateSlateCrosshair();
 
     UpdateParachute(DeltaSeconds);
     UpdateShooting(DeltaSeconds);
@@ -176,13 +150,6 @@ void ALCPlayerCharacter::Tick(float DeltaSeconds)
     else if (WeaponMesh && !bIsReloading && RecoilAnimTime <= 0.f)
     {
         WeaponMesh->SetRelativeRotation(WeaponRestRotation);
-    }
-
-    // HUD crosshair
-    if (HUDWidget)
-    {
-        HUDWidget->SetCrosshairSpread(CurrentSpread);
-        HUDWidget->SetCrosshairADS(bIsADS);
     }
 
     // Camera recoil recovery
@@ -382,12 +349,9 @@ void ALCPlayerCharacter::Fire()
     SpawnMuzzleFlash();
     SpawnShellEjection();
 
-    // Update HUD ammo
-    if (HUDWidget)
-    {
-        int32 Total = (PS) ? PS->GetAmmoPool() : 0;
-        HUDWidget->UpdateWeaponInfo(CurrentWeaponName.ToString(), CurrentAmmoInMag, Total);
-    }
+    // Update HUD ammo via Slate
+    FString AmmoStr = FString::Printf(TEXT("%d / %d"), CurrentAmmoInMag, (PS) ? PS->GetAmmoPool() : 0);
+    if (SlateAmmoText.IsValid()) SlateAmmoText->SetText(FText::FromString(AmmoStr));
 
     // Auto fire for automatic weapons
     if (WeaponData->bIsAutomatic && bIsShooting)
@@ -416,7 +380,7 @@ void ALCPlayerCharacter::Reload()
     ReloadAnimTime = 0.f;
     ReloadAnimDuration = WeaponData->ReloadTime;
 
-    if (HUDWidget) HUDWidget->SetReloading(true, 0.f);
+    if (SlateReloadText.IsValid()) { SlateReloadText->SetVisibility(EVisibility::Visible); SlateReloadText->SetText(FText::FromString(TEXT("RELOADING..."))); }
 
     GetWorldTimerManager().SetTimer(ReloadTimerHandle, this, &ALCPlayerCharacter::OnReloadComplete, WeaponData->ReloadTime, false);
 }
@@ -440,11 +404,9 @@ void ALCPlayerCharacter::OnReloadComplete()
     PS->ConsumeAmmo(Available);
     ReloadProgress = 0.f;
 
-    if (HUDWidget)
-    {
-        HUDWidget->SetReloading(false, 0.f);
-        HUDWidget->UpdateWeaponInfo(CurrentWeaponName.ToString(), CurrentAmmoInMag, PS->GetAmmoPool());
-    }
+    if (SlateReloadText.IsValid()) SlateReloadText->SetVisibility(EVisibility::Hidden);
+    FString AmmoStr = FString::Printf(TEXT("%d / %d"), CurrentAmmoInMag, PS->GetAmmoPool());
+    if (SlateAmmoText.IsValid()) SlateAmmoText->SetText(FText::FromString(AmmoStr));
 }
 
 void ALCPlayerCharacter::PerformRaycast()
@@ -476,7 +438,7 @@ void ALCPlayerCharacter::PerformRaycast()
 
     FVector TracerStart = WeaponMesh ? WeaponMesh->GetComponentLocation() : (FPSCamera->GetComponentLocation() + Direction * 40.f);
     FVector TracerEnd = bHit ? Hit.Location : End;
-    DrawDebugLine(GetWorld(), TracerStart, TracerEnd, FColor(255, 220, 0), false, 0.12f, 0, 4.0f);
+    DrawDebugLine(GetWorld(), TracerStart, TracerEnd, FColor(255, 220, 0), false, 0.12f, 0, 1.0f);
     if (bHit)
     {
         DrawDebugSphere(GetWorld(), Hit.Location, 3.f, 6, FColor(255, 200, 0), false, 0.10f);
@@ -515,44 +477,17 @@ void ALCPlayerCharacter::ApplyDamage(AActor* HitActor, float Damage, bool bIsHea
 void ALCPlayerCharacter::SpawnMuzzleFlash()
 {
     if (!FPSCamera || !WeaponMesh) return;
-
     FVector BarrelTip = WeaponMesh->GetComponentTransform().TransformPosition(FVector(35.f, 0.f, 0.f));
-    FVector FlashLoc = BarrelTip;
 
-    UProceduralMeshComponent* FlashMesh = NewObject<UProceduralMeshComponent>(this);
-    FlashMesh->RegisterComponent();
-    FlashMesh->SetWorldLocation(FlashLoc);
-    FlashMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-    TArray<FVector> Verts; TArray<int32> Tris; TArray<FVector> Normals;
-    TArray<FColor> Colors; TArray<FVector2D> UVs; TArray<FProcMeshTangent> Tangents;
-
-    float R = 8.f;
-    Verts.Add(FVector(0, 0, R));
-    Verts.Add(FVector(0, 0, -R));
-    for (int32 i = 0; i < 8; ++i)
+    DrawDebugSphere(GetWorld(), BarrelTip, 10.f, 12, FColor(255, 240, 100), false, 0.04f);
+    for (int32 i = 0; i < 4; ++i)
     {
-        float A = 2.f * PI * i / 8;
-        Verts.Add(FVector(R * 0.6f * FMath::Cos(A), R * 0.6f * FMath::Sin(A), R * 0.3f));
-        Colors.Add(FColor(255, 255, 100, 255));
-        UVs.Add(FVector2D::ZeroVector);
+        float A = FMath::FRandRange(0.f, PI * 2.f);
+        float E = FMath::FRandRange(5.f, 15.f);
+        FVector Dir = FPSCamera->GetForwardVector() + FVector(FMath::Cos(A) * 0.3f, FMath::Sin(A) * 0.3f, 0.2f);
+        Dir.Normalize();
+        DrawDebugLine(GetWorld(), BarrelTip, BarrelTip + Dir * E, FColor(255, 220, 50), false, 0.04f, 0, 1.0f);
     }
-    Colors.Add(FColor(255, 255, 80, 255)); UVs.Add(FVector2D::ZeroVector);
-    Colors.Add(FColor(255, 180, 30, 255)); UVs.Add(FVector2D::ZeroVector);
-    for (int32 i = 0; i < 8; ++i)
-    {
-        Tris.Add(0); Tris.Add(2 + i); Tris.Add(2 + ((i + 1) % 8));
-        Tris.Add(1); Tris.Add(2 + ((i + 1) % 8)); Tris.Add(2 + i);
-    }
-
-    FlashMesh->CreateMeshSection(0, Verts, Tris, Normals, UVs, Colors, Tangents, false);
-    if (VertexColorWeaponMat) FlashMesh->SetMaterial(0, UMaterialInstanceDynamic::Create(VertexColorWeaponMat, this));
-
-    FTimerHandle Handle;
-    GetWorldTimerManager().SetTimer(Handle, [FlashMesh]()
-    {
-        if (IsValid(FlashMesh)) FlashMesh->DestroyComponent();
-    }, 0.05f, false);
 }
 
 void ALCPlayerCharacter::SpawnBloodEffect(const FVector& Location)
@@ -882,13 +817,12 @@ void ALCPlayerCharacter::EquipWeapon(FName WeaponName)
         WeaponRestRotation = WeaponMesh->GetRelativeRotation();
     }
 
-    if (HUDWidget)
-    {
-        int32 TotalAmmo = 0;
-        ALCPlayerState* PS2 = Cast<ALCPlayerState>(GetPlayerState());
-        if (PS2) TotalAmmo = PS2->GetAmmoPool();
-        HUDWidget->UpdateWeaponInfo(WeaponName.ToString(), CurrentAmmoInMag, TotalAmmo);
-    }
+    if (SlateWeaponText.IsValid()) SlateWeaponText->SetText(FText::FromString(WeaponName.ToString()));
+    int32 TotalAmmo = 0;
+    ALCPlayerState* PS2 = Cast<ALCPlayerState>(GetPlayerState());
+    if (PS2) TotalAmmo = PS2->GetAmmoPool();
+    FString AmmoStr = FString::Printf(TEXT("%d / %d"), CurrentAmmoInMag, TotalAmmo);
+    if (SlateAmmoText.IsValid()) SlateAmmoText->SetText(FText::FromString(AmmoStr));
 }
 
 void ALCPlayerCharacter::GiveSpecialWeapon(FName WeaponName)
@@ -1106,4 +1040,81 @@ void ALCPlayerCharacter::BuildWeaponModel(FName WeaponName)
 
         WeaponMesh->CreateMeshSection(2, MVerts, MTris, MNormals, MUvs, MColors, MTangents, true);
     }
+}
+
+void ALCPlayerCharacter::InitSlateUI()
+{
+    if (bUIInitialized) return;
+    if (!GEngine || !GEngine->GameViewport) return;
+
+    FSlateFontInfo BigFont;
+    BigFont.Size = 30;
+    FSlateFontInfo MedFont;
+    MedFont.Size = 16;
+    FSlateFontInfo XFont;
+    XFont.Size = 16;
+
+    SAssignNew(SlateAmmoText, STextBlock)
+        .Font(BigFont)
+        .ColorAndOpacity(FLinearColor::White)
+        .Text(FText::FromString(TEXT("30 / 300")))
+        .Justification(ETextJustify::Right);
+
+    SAssignNew(SlateWeaponText, STextBlock)
+        .Font(MedFont)
+        .ColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f))
+        .Text(FText::FromString(TEXT("AKM")))
+        .Justification(ETextJustify::Right);
+
+    SAssignNew(SlateReloadText, STextBlock)
+        .Font(MedFont)
+        .ColorAndOpacity(FLinearColor(1.f, 0.8f, 0.f))
+        .Visibility(EVisibility::Hidden);
+
+    SAssignNew(SlateCrossTop, STextBlock)
+        .Font(XFont).ColorAndOpacity(FLinearColor(0.f, 1.f, 0.f, 0.85f))
+        .Text(FText::FromString(TEXT("|")));
+    SAssignNew(SlateCrossBot, STextBlock)
+        .Font(XFont).ColorAndOpacity(FLinearColor(0.f, 1.f, 0.f, 0.85f))
+        .Text(FText::FromString(TEXT("|")));
+    SAssignNew(SlateCrossLeft, STextBlock)
+        .Font(XFont).ColorAndOpacity(FLinearColor(0.f, 1.f, 0.f, 0.85f))
+        .Text(FText::FromString(TEXT("--")));
+    SAssignNew(SlateCrossRight, STextBlock)
+        .Font(XFont).ColorAndOpacity(FLinearColor(0.f, 1.f, 0.f, 0.85f))
+        .Text(FText::FromString(TEXT("--")));
+
+    SAssignNew(SlateHUD, SOverlay)
+    + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
+    [
+        SNew(SOverlay)
+        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[SlateCrossTop.ToSharedRef()]
+        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[SlateCrossBot.ToSharedRef()]
+        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[SlateCrossLeft.ToSharedRef()]
+        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)[SlateCrossRight.ToSharedRef()]
+    ]
+    + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(0, 0, 30, 30)
+    [
+        SNew(SVerticalBox)
+        + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right)[SlateWeaponText.ToSharedRef()]
+        + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right)[SlateAmmoText.ToSharedRef()]
+    ]
+    + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Bottom).Padding(0, 0, 0, 120)
+    [SlateReloadText.ToSharedRef()];
+
+    GEngine->GameViewport->AddViewportWidgetContent(SlateHUD.ToSharedRef());
+    bUIInitialized = true;
+}
+
+void ALCPlayerCharacter::UpdateSlateCrosshair()
+{
+    if (!bUIInitialized) { InitSlateUI(); if (!bUIInitialized) return; }
+
+    float Gap = (bIsADS ? 3.f : 5.f) + CurrentSpread * (bIsADS ? 1.f : 2.5f);
+    float Len = bIsADS ? 6.f : 10.f;
+
+    if (SlateCrossTop.IsValid())    SlateCrossTop->SetRenderTransform(FSlateRenderTransform(FVector2D(0.f, -Gap - Len)));
+    if (SlateCrossBot.IsValid())    SlateCrossBot->SetRenderTransform(FSlateRenderTransform(FVector2D(0.f, Gap)));
+    if (SlateCrossLeft.IsValid())   SlateCrossLeft->SetRenderTransform(FSlateRenderTransform(FVector2D(-Gap - Len * 2.f, -8.f)));
+    if (SlateCrossRight.IsValid())  SlateCrossRight->SetRenderTransform(FSlateRenderTransform(FVector2D(Gap, -8.f)));
 }

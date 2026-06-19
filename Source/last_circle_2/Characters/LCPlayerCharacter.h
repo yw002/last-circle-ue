@@ -10,7 +10,10 @@ class USpringArmComponent;
 class ULCWeaponBase;
 class UInputAction;
 class UInputMappingContext;
-class ULCHUDWidget;
+class SOverlay;
+class STextBlock;
+class SCanvas;
+class SBorder;
 
 UCLASS()
 class LAST_CIRCLE_2_API ALCPlayerCharacter : public ALCBaseCharacter
@@ -172,8 +175,12 @@ protected:
     UPROPERTY()
     UMaterial* VertexColorWeaponMat = nullptr;
 
-    UPROPERTY()
-    ULCHUDWidget* HUDWidget = nullptr;
+    TSharedPtr<SOverlay> SlateHUD;
+    TSharedPtr<STextBlock> SlateAmmoText;
+    TSharedPtr<STextBlock> SlateWeaponText;
+    TSharedPtr<STextBlock> SlateReloadText;
+    TSharedPtr<STextBlock> SlateCrossTop, SlateCrossBot, SlateCrossLeft, SlateCrossRight;
+    bool bUIInitialized = false;
 
     UPROPERTY()
     float RecoilAnimTime = 0.f;
@@ -204,4 +211,6 @@ protected:
     void SpawnShellEjection();
 
     void OnReloadComplete();
+    void InitSlateUI();
+    void UpdateSlateCrosshair();
 };
