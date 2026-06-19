@@ -3,12 +3,16 @@
 #include "last_circle_2.h"
 #include "Modules/ModuleManager.h"
 #include "Characters/LCBaseCharacter.h"
+#include "Misc/CoreMisc.h"
 
 void Flast_circle_2Module::StartupModule()
 {
     FDefaultGameModuleImpl::StartupModule();
 #if WITH_EDITOR
-    ALCBaseCharacter::GetOrCreateVertexColorMaterial();
+    if (!IsRunningCommandlet())
+    {
+        ALCBaseCharacter::GetOrCreateVertexColorMaterial();
+    }
 #endif
 }
 

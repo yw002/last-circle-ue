@@ -365,25 +365,31 @@ UMaterial* ALCBaseCharacter::GetOrCreateVertexColorMaterial()
     static UMaterial* Cached = nullptr;
     if (Cached) return Cached;
 
-    Cached = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
-    if (Cached) { UE_LOG(LogTemp, Log, TEXT("[VertexColorMat] Loaded from EngineDebugMaterials")); return Cached; }
+#if WITH_EDITOR
+    if (!IsRunningCommandlet())
+    {
+        Cached = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
+        if (Cached) { UE_LOG(LogTemp, Log, TEXT("[VertexColorMat] Loaded from EngineDebugMaterials")); return Cached; }
+    }
+#endif
 
     Cached = LoadObject<UMaterial>(nullptr, TEXT("/Game/M_VertexColor.M_VertexColor"));
     if (Cached) { UE_LOG(LogTemp, Log, TEXT("[VertexColorMat] Loaded from project Content")); return Cached; }
 
 #if WITH_EDITOR
+    if (IsRunningCommandlet())
+    {
+        Cached = UMaterial::GetDefaultMaterial(MD_Surface);
+        UE_LOG(LogTemp, Log, TEXT("[VertexColorMat] Commandlet fallback to default"));
+        return Cached;
+    }
+
     FString PkgPath = TEXT("/Game/M_VertexColor");
     FString FilePath = FPackageName::LongPackageNameToFilename(PkgPath, FPackageName::GetAssetPackageExtension());
 
     IPlatformFile& PF = FPlatformFileManager::Get().GetPlatformFile();
     FString Dir = FPaths::GetPath(FilePath);
     if (!PF.DirectoryExists(*Dir)) PF.CreateDirectoryTree(*Dir);
-
-    if (PF.FileExists(*FilePath))
-    {
-        Cached = LoadObject<UMaterial>(nullptr, TEXT("/Game/M_VertexColor.M_VertexColor"));
-        if (Cached) { UE_LOG(LogTemp, Log, TEXT("[VertexColorMat] Loaded existing file from disk")); return Cached; }
-    }
 
     UPackage* Pkg = CreatePackage(*PkgPath);
     Cached = NewObject<UMaterial>(Pkg, UMaterial::StaticClass(), FName("M_VertexColor"), RF_Public | RF_Standalone);
