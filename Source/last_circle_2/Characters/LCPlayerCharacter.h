@@ -180,8 +180,8 @@ protected:
     TSharedPtr<STextBlock> SlateWeaponText;
     TSharedPtr<STextBlock> SlateReloadText;
     TSharedPtr<SBox> SlateCrossTop, SlateCrossBot, SlateCrossLeft, SlateCrossRight;
-    float CrosshairGap = 8.f;
-    float CrosshairLen = 14.f;
+    float CrosshairGap = 10.f;
+    float CrosshairLen = 16.f;
     bool bUIInitialized = false;
 
     UPROPERTY()

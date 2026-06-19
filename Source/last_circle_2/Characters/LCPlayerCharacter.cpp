@@ -487,14 +487,28 @@ void ALCPlayerCharacter::SpawnMuzzleFlash()
     TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
     TArray<FColor> C; TArray<FVector2D> UV; TArray<FProcMeshTangent> Tan;
 
-    float S = 8.f;
-    V.Add(FVector(0, -S, -S));
-    V.Add(FVector(0, S, -S));
-    V.Add(FVector(0, S, S));
-    V.Add(FVector(0, -S, S));
-    for (int32 i = 0; i < 4; ++i) { C.Add(FColor(255, 240, 150)); UV.Add(FVector2D::ZeroVector); }
-    T.Add(0); T.Add(1); T.Add(2);
-    T.Add(0); T.Add(2); T.Add(3);
+    float OuterR = 10.f;
+    float InnerR = 3.f;
+    int32 Pts = 6;
+    V.Add(FVector::ZeroVector);
+    C.Add(FColor(255, 255, 200)); UV.Add(FVector2D::ZeroVector);
+    for (int32 i = 0; i < Pts; ++i)
+    {
+        float A = 2.f * PI * i / Pts + PI / Pts;
+        V.Add(FVector(OuterR * FMath::Cos(A), OuterR * FMath::Sin(A), 0.f));
+        C.Add(FColor(255, 220, 50)); UV.Add(FVector2D::ZeroVector);
+        float Ai = 2.f * PI * (i + 0.5f) / Pts + PI / Pts;
+        V.Add(FVector(InnerR * FMath::Cos(Ai), InnerR * FMath::Sin(Ai), 0.f));
+        C.Add(FColor(255, 240, 150)); UV.Add(FVector2D::ZeroVector);
+    }
+    for (int32 i = 0; i < Pts; ++i)
+    {
+        int32 Tip = 1 + i * 2;
+        int32 In = 1 + i * 2 + 1;
+        int32 NextTip = 1 + ((i + 1) % Pts) * 2;
+        T.Add(0); T.Add(Tip); T.Add(In);
+        T.Add(0); T.Add(In); T.Add(NextTip);
+    }
 
     Flash->CreateMeshSection(0, V, T, N, UV, C, Tan, false);
     if (VertexColorWeaponMat) Flash->SetMaterial(0, UMaterialInstanceDynamic::Create(VertexColorWeaponMat, this));
@@ -503,7 +517,7 @@ void ALCPlayerCharacter::SpawnMuzzleFlash()
     GetWorldTimerManager().SetTimer(Handle, [Flash]()
     {
         if (IsValid(Flash)) Flash->DestroyComponent();
-    }, 0.04f, false);
+    }, 0.05f, false);
 }
 
 void ALCPlayerCharacter::SpawnBloodEffect(const FVector& Location)
@@ -1084,36 +1098,38 @@ void ALCPlayerCharacter::InitSlateUI()
         .ColorAndOpacity(FLinearColor(1.f, 0.8f, 0.f))
         .Visibility(EVisibility::Hidden);
 
-    // Crosshair = 4 colored rectangles (SBox), no characters
-    auto MakeCrossBar = []() -> TSharedRef<SBox> {
-        return SNew(SBox).WidthOverride(2.f).HeightOverride(14.f)
-            [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
-    };
-    auto MakeCrossBarH = []() -> TSharedRef<SBox> {
-        return SNew(SBox).WidthOverride(14.f).HeightOverride(2.f)
-            [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
-    };
-
-    SlateCrossTop = MakeCrossBar();
-    SlateCrossBot = MakeCrossBar();
-    SlateCrossLeft = MakeCrossBarH();
-    SlateCrossRight = MakeCrossBarH();
+    SAssignNew(SlateCrossTop, SBox)
+        .WidthOverride(2.f).HeightOverride(16.f)
+        [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
+    SAssignNew(SlateCrossBot, SBox)
+        .WidthOverride(2.f).HeightOverride(16.f)
+        [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
+    SAssignNew(SlateCrossLeft, SBox)
+        .WidthOverride(16.f).HeightOverride(2.f)
+        [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
+    SAssignNew(SlateCrossRight, SBox)
+        .WidthOverride(16.f).HeightOverride(2.f)
+        [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
 
     SAssignNew(SlateHUD, SOverlay)
     + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
     [
         SNew(SCanvas)
-        + SCanvas::Slot().Position(TAttribute<FVector2D>(FVector2D(0.f, 0.f)))
-          .Size(TAttribute<FVector2D>(FVector2D(2.f, 14.f)))
+        + SCanvas::Slot()
+          .Position(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(-1.f, -(CrosshairGap + CrosshairLen)); }))
+          .Size(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(2.f, CrosshairLen); }))
           [SlateCrossTop.ToSharedRef()]
-        + SCanvas::Slot().Position(TAttribute<FVector2D>(FVector2D(0.f, 0.f)))
-          .Size(TAttribute<FVector2D>(FVector2D(2.f, 14.f)))
+        + SCanvas::Slot()
+          .Position(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(-1.f, CrosshairGap); }))
+          .Size(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(2.f, CrosshairLen); }))
           [SlateCrossBot.ToSharedRef()]
-        + SCanvas::Slot().Position(TAttribute<FVector2D>(FVector2D(0.f, 0.f)))
-          .Size(TAttribute<FVector2D>(FVector2D(14.f, 2.f)))
+        + SCanvas::Slot()
+          .Position(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(-(CrosshairGap + CrosshairLen), -1.f); }))
+          .Size(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(CrosshairLen, 2.f); }))
           [SlateCrossLeft.ToSharedRef()]
-        + SCanvas::Slot().Position(TAttribute<FVector2D>(FVector2D(0.f, 0.f)))
-          .Size(TAttribute<FVector2D>(FVector2D(14.f, 2.f)))
+        + SCanvas::Slot()
+          .Position(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(CrosshairGap, -1.f); }))
+          .Size(TAttribute<FVector2D>::CreateLambda([this]() { return FVector2D(CrosshairLen, 2.f); }))
           [SlateCrossRight.ToSharedRef()]
     ]
     + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(0, 0, 30, 30)
@@ -1133,31 +1149,9 @@ void ALCPlayerCharacter::UpdateSlateCrosshair()
 {
     if (!bUIInitialized) { InitSlateUI(); if (!bUIInitialized) return; }
 
-    float TargetGap = (bIsADS ? 4.f : 8.f) + CurrentSpread * (bIsADS ? 1.5f : 3.f);
-    float TargetLen = bIsADS ? 8.f : 14.f;
+    float TargetGap = (bIsADS ? 5.f : 10.f) + CurrentSpread * (bIsADS ? 1.5f : 4.f);
+    float TargetLen = bIsADS ? 8.f : 16.f;
 
-    CrosshairGap = FMath::FInterpTo(CrosshairGap, TargetGap, 0.016f, 10.f);
-    CrosshairLen = FMath::FInterpTo(CrosshairLen, TargetLen, 0.016f, 10.f);
-
-    FLinearColor Col = FLinearColor(0.f, 1.f, 0.f, 0.85f);
-    auto SetBar = [&](TSharedPtr<SBox>& Bar, bool bHorizontal, float PosX, float PosY) {
-        if (!Bar.IsValid()) return;
-        TSharedRef<SBorder> Border = StaticCastSharedRef<SBorder>(Bar->GetChildren()->GetChildAt(0));
-        Border->SetBorderBackgroundColor(Col);
-        if (bHorizontal)
-        {
-            Bar->SetWidthOverride(CrosshairLen);
-            Bar->SetHeightOverride(2.f);
-        }
-        else
-        {
-            Bar->SetWidthOverride(2.f);
-            Bar->SetHeightOverride(CrosshairLen);
-        }
-    };
-
-    SetBar(SlateCrossTop, false, 0.f, 0.f);
-    SetBar(SlateCrossBot, false, 0.f, 0.f);
-    SetBar(SlateCrossLeft, true, 0.f, 0.f);
-    SetBar(SlateCrossRight, true, 0.f, 0.f);
+    CrosshairGap = FMath::FInterpTo(CrosshairGap, TargetGap, 0.016f, 12.f);
+    CrosshairLen = FMath::FInterpTo(CrosshairLen, TargetLen, 0.016f, 12.f);
 }
