@@ -4,6 +4,7 @@
 #include "ProceduralMeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/BoxComponent.h"
+#include "Engine/World.h"
 #include "LCEnvironmentActor.generated.h"
 
 UENUM(BlueprintType)
@@ -290,12 +291,22 @@ protected:
             {
                 float X = -MapHalfExtent + i * CellSize + FMath::RandRange(0.f, CellSize);
                 float Y = -MapHalfExtent + j * CellSize + FMath::RandRange(0.f, CellSize);
-                float Z = GetHeightAt(X, Y);
-                if (Z < 10.f) continue;
+                float MathZ = GetHeightAt(X, Y);
+                if (MathZ < 10.f) continue;
+
+                // Use line trace to find exact terrain surface (avoids tree floating on slopes)
+                FVector TraceStart(X, Y, MathZ + 1000.f);
+                FVector TraceEnd(X, Y, MathZ - 500.f);
+                FHitResult Hit;
+                FCollisionQueryParams Params;
+                if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_WorldStatic, Params))
+                {
+                    MathZ = Hit.Location.Z;
+                }
 
                 UProceduralMeshComponent* Tree = NewObject<UProceduralMeshComponent>(this);
                 Tree->RegisterComponent();
-                Tree->SetWorldLocation(FVector(X, Y, Z));
+                Tree->SetWorldLocation(FVector(X, Y, MathZ));
                 Tree->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
                 TArray<FVector> V; TArray<int32> T; TArray<FVector> N;
@@ -365,11 +376,20 @@ protected:
         {
             float X = FMath::RandRange(-MapHalfExtent * 0.93f, MapHalfExtent * 0.93f);
             float Y = FMath::RandRange(-MapHalfExtent * 0.93f, MapHalfExtent * 0.93f);
-            float Z = GetHeightAt(X, Y);
+            float MathZ = GetHeightAt(X, Y);
+
+            FVector TraceStart(X, Y, MathZ + 500.f);
+            FVector TraceEnd(X, Y, MathZ - 200.f);
+            FHitResult RockHit;
+            FCollisionQueryParams RockParams;
+            if (GetWorld()->LineTraceSingleByChannel(RockHit, TraceStart, TraceEnd, ECC_WorldStatic, RockParams))
+            {
+                MathZ = RockHit.Location.Z;
+            }
 
             UProceduralMeshComponent* Rock = NewObject<UProceduralMeshComponent>(this);
             Rock->RegisterComponent();
-            Rock->SetWorldLocation(FVector(X, Y, Z));
+            Rock->SetWorldLocation(FVector(X, Y, MathZ));
             Rock->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
             TArray<FVector> V; TArray<int32> T; TArray<FVector> N;

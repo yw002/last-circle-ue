@@ -23,14 +23,16 @@ ALCBaseCharacter::ALCBaseCharacter()
     GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
     GetCharacterMovement()->JumpZVelocity = 420.f;
     GetCharacterMovement()->AirControl = 0.3f;
-    GetCharacterMovement()->MaxStepHeight = 100.f;
-    GetCharacterMovement()->GroundFriction = 4.f;
+    GetCharacterMovement()->MaxStepHeight = 120.f;
+    GetCharacterMovement()->GroundFriction = 6.f;
     GetCharacterMovement()->BrakingDecelerationWalking = 1024.f;
     GetCharacterMovement()->bUseSeparateBrakingFriction = true;
-    GetCharacterMovement()->BrakingFriction = 2.f;
+    GetCharacterMovement()->BrakingFriction = 1.f;
     GetCharacterMovement()->PerchRadiusThreshold = 30.f;
     GetCharacterMovement()->PerchAdditionalHeight = 50.f;
     GetCharacterMovement()->MaxWalkSpeedCrouched = BaseSpeed * 0.6f;
+    GetCharacterMovement()->SetWalkableFloorAngle(65.f);
+    GetCharacterMovement()->bAlwaysCheckFloor = true;
 }
 
 void ALCBaseCharacter::BeginPlay()
