@@ -23,6 +23,8 @@
 #include "Styling/CoreStyle.h"
 #include "Engine/GameViewportClient.h"
 #include "Sound/SoundWaveProcedural.h"
+#include "Systems/LCPickupSystem.h"
+#include "EngineUtils.h"
 
 ALCPlayerCharacter::ALCPlayerCharacter()
 {
@@ -102,14 +104,15 @@ void ALCPlayerCharacter::Tick(float DeltaSeconds)
 
     if (bIsDead) return;
 
-    // Anti-slide: kill residual velocity on slopes when no input
+    // Anti-slide: aggressively kill horizontal velocity when no input and on ground
     if (GetCharacterMovement()->IsMovingOnGround() && FMath::IsNearlyZero(InputForward) && FMath::IsNearlyZero(InputRight))
     {
         FVector Vel = GetVelocity();
         Vel.Z = 0.f;
-        if (Vel.SizeSquared2D() < 400.f)
+        // Kill all horizontal sliding, not just small velocities
+        if (Vel.SizeSquared() > 1.f)
         {
-            GetCharacterMovement()->Velocity = FVector::ZeroVector;
+            GetCharacterMovement()->Velocity = FVector(0.f, 0.f, GetVelocity().Z);
         }
     }
 
@@ -131,6 +134,43 @@ void ALCPlayerCharacter::Tick(float DeltaSeconds)
             default: PhaseStr = TEXT(""); break;
             }
             SlateWaveText->SetText(FText::FromString(FString::Printf(TEXT("WAVE %d/20 - %s"), Wave, *PhaseStr)));
+        }
+    }
+
+    // Update health bar - use PlayerState health (not BaseCharacter::Health)
+    if (SlateHealthText.IsValid())
+    {
+        ALCPlayerState* HPS = Cast<ALCPlayerState>(GetPlayerState());
+        float HP = HPS ? FMath::Max(0.f, HPS->GetHealth()) : 0.f;
+        float MaxHP = HPS ? FMath::Max(1.f, HPS->GetMaxHealth()) : FMath::Max(1.f, MaxHealth * HealthMultiplier);
+        float Pct = HP / MaxHP;
+        SlateHealthText->SetText(FText::FromString(FString::Printf(TEXT("HP %d/%d"), (int32)HP, (int32)MaxHP)));
+        // Color: green > yellow > red
+        FLinearColor HCol = Pct > 0.5f ? FLinearColor(0.2f, 1.f, 0.2f) : (Pct > 0.25f ? FLinearColor(1.f, 0.8f, 0.f) : FLinearColor(1.f, 0.2f, 0.2f));
+        SlateHealthText->SetColorAndOpacity(FSlateColor(HCol));
+        // Resize bar fill
+        if (SlateHealthBarFill.IsValid())
+            SlateHealthBarFill->SetWidthOverride(FOptionalSize(200.f * Pct));
+    }
+
+    // Update pickup proximity indicator
+    if (SlatePickupText.IsValid())
+    {
+        ALCPickupItem* NearPickup = nullptr;
+        float NearDist = 250.f;
+        for (TActorIterator<ALCPickupItem> It(GetWorld()); It; ++It)
+        {
+            float D = FVector::Dist(GetActorLocation(), It->GetActorLocation());
+            if (D < NearDist) { NearDist = D; NearPickup = *It; }
+        }
+        if (NearPickup)
+        {
+            SlatePickupText->SetVisibility(EVisibility::Visible);
+            SlatePickupText->SetText(FText::FromString(FString::Printf(TEXT("[F] %s"), *NearPickup->GetDisplayName())));
+        }
+        else
+        {
+            SlatePickupText->SetVisibility(EVisibility::Hidden);
         }
     }
 
@@ -314,6 +354,7 @@ void ALCPlayerCharacter::ToggleCrouch()
 void ALCPlayerCharacter::StartShooting()
 {
     if (bIsDead || bIsParachuting || bIsInVehicle) return;
+    if (bIsShooting) return; // Already shooting, timer chain handles auto-fire
     bIsShooting = true;
     Fire();
 }
@@ -338,10 +379,10 @@ void ALCPlayerCharacter::Fire()
     ALCPlayerState* PS = Cast<ALCPlayerState>(GetPlayerState());
     if (!PS) return;
 
-    // Check fire rate
+    // Check fire rate (with small epsilon to avoid timer precision issues)
     float Now = GetWorld()->GetTimeSeconds();
     float FireInterval = WeaponData->FireRate / 1000.f;
-    if (Now - LastShotTime < FireInterval) return;
+    if (Now - LastShotTime < FireInterval - 0.002f) return;
 
     // Check ammo
     if (CurrentAmmoInMag <= 0)
@@ -686,7 +727,7 @@ void ALCPlayerCharacter::SpawnShellEjection()
 void ALCPlayerCharacter::PlayGunshotSound()
 {
     const int32 SampleRate = 44100;
-    const float DurationSec = 0.1f;
+    const float DurationSec = 0.15f;
     const int32 NumSamples = FMath::CeilToInt(SampleRate * DurationSec);
     const int32 NumBytes = NumSamples * sizeof(int16);
 
@@ -697,10 +738,15 @@ void ALCPlayerCharacter::PlayGunshotSound()
     FRandomStream Rng(FMath::Rand());
     for (int32 i = 0; i < NumSamples; ++i)
     {
-        float t = (float)i / NumSamples;
-        float Env = FMath::Exp(-t * 30.f);
+        float t = (float)i / SampleRate;
+        // Punchy envelope: fast attack, medium decay
+        float Env = FMath::Exp(-t * 25.f);
+        // Mix noise + low frequency thump for powerful gunshot
         float Noise = Rng.FRandRange(-1.f, 1.f);
-        Samples[i] = static_cast<int16>(Noise * 32767.f * Env * 0.6f);
+        float Bass = FMath::Sin(t * 120.f * 2.f * PI) * 0.6f;
+        float Mid = FMath::Sin(t * 400.f * 2.f * PI) * 0.3f;
+        float Val = (Noise * 0.5f + Bass + Mid) * Env;
+        Samples[i] = static_cast<int16>(FMath::Clamp(Val, -1.f, 1.f) * 32000.f);
     }
 
     USoundWaveProcedural* Sound = NewObject<USoundWaveProcedural>(USoundWaveProcedural::StaticClass());
@@ -710,7 +756,8 @@ void ALCPlayerCharacter::PlayGunshotSound()
     Sound->bLooping = false;
     Sound->QueueAudio(PCM.GetData(), NumBytes);
 
-    UGameplayStatics::PlaySound2D(GetWorld(), Sound, 1.f, 0.9f + FMath::FRandRange(0.f, 0.2f));
+    // Use 3D positional sound, much louder
+    UGameplayStatics::PlaySoundAtLocation(this, Sound, GetActorLocation(), 4.f, 0.9f + FMath::FRandRange(0.f, 0.15f));
 }
 
 // --- ADS ---
@@ -834,25 +881,90 @@ void ALCPlayerCharacter::Interact()
 {
     if (bIsDead || bIsParachuting) return;
 
-    // Line trace for interactable objects
-    FVector Start = FPSCamera->GetComponentLocation();
-    FVector End = Start + FPSCamera->GetForwardVector() * 200.f;
+    UE_LOG(LogTemp, Warning, TEXT("[Interact] Called! Searching pickups within 300 units..."));
 
-    FHitResult Hit;
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(this);
-
-    if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+    // Find nearest pickup within 300 units using TActorIterator
+    ALCPickupItem* NearestPickup = nullptr;
+    float NearestDist = 300.f;
+    int32 TotalPickups = 0;
+    for (TActorIterator<ALCPickupItem> It(GetWorld()); It; ++It)
     {
-        if (Hit.GetActor())
+        TotalPickups++;
+        float D = FVector::Dist(GetActorLocation(), It->GetActorLocation());
+        if (D < NearestDist) { NearestDist = D; NearestPickup = *It; }
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[Interact] Total pickups in world: %d, Nearest dist: %.1f"), TotalPickups, NearestPickup ? NearestDist : -1.f);
+
+    if (!NearestPickup)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Interact] No pickup within 300 units!"));
+        return;
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[Interact] Found pickup: %s (type %d)"), *NearestPickup->GetDisplayName(), (int32)NearestPickup->GetPickupType());
+
+    EPickupType Type = NearestPickup->GetPickupType();
+    ALCPlayerState* PS = Cast<ALCPlayerState>(GetPlayerState());
+    if (!PS) { UE_LOG(LogTemp, Error, TEXT("[Interact] No PlayerState!")); return; }
+
+    bool bConsumed = false;
+    switch (Type)
+    {
+    case EPickupType::Weapon:
+    case EPickupType::SpecialWeapon:
+    {
+        FName Wep = NearestPickup->GetWeaponName();
+        UE_LOG(LogTemp, Warning, TEXT("[Interact] Weapon pickup: %s"), Wep.IsNone() ? TEXT("None") : *Wep.ToString());
+        if (!Wep.IsNone())
         {
-            // Check if it implements interactable interface or is a pickup
-            // For now, try to pick up
-            if (Hit.GetActor()->ActorHasTag(FName("Pickup")))
-            {
-                // Pick up logic handled by pickup system
-            }
+            EquipWeapon(Wep);
+            bConsumed = true;
         }
+        break;
+    }
+    case EPickupType::Ammo:
+        PS->AddAmmo(NearestPickup->GetAmmoAmount());
+        UE_LOG(LogTemp, Warning, TEXT("[Interact] Picked up %d ammo"), NearestPickup->GetAmmoAmount());
+        bConsumed = true;
+        break;
+    case EPickupType::Medkit:
+        if (ALCPlayerState* MPS = Cast<ALCPlayerState>(GetPlayerState()))
+            MPS->SetHealth(FMath::Min(MPS->GetMaxHealth(), MPS->GetHealth() + 100.f));
+        UE_LOG(LogTemp, Warning, TEXT("[Interact] Picked up medkit!"));
+        bConsumed = true;
+        break;
+    case EPickupType::Helmet:
+        if (static_cast<int32>(HelmetLevel) < 3)
+        {
+            HelmetLevel = static_cast<EEquipmentLevel>(static_cast<int32>(HelmetLevel) + 1);
+            bConsumed = true;
+        }
+        break;
+    case EPickupType::Armor:
+        if (static_cast<int32>(ArmorLevel) < 3)
+        {
+            ArmorLevel = static_cast<EEquipmentLevel>(static_cast<int32>(ArmorLevel) + 1);
+            bConsumed = true;
+        }
+        break;
+    case EPickupType::Scope:
+        bConsumed = true;
+        break;
+    default:
+        break;
+    }
+
+    if (bConsumed)
+    {
+        NearestPickup->Destroy();
+        UE_LOG(LogTemp, Warning, TEXT("[Interact] Consumed pickup!"));
+        FString AmmoStr = FString::Printf(TEXT("%d / %d"), CurrentAmmoInMag, PS->GetAmmoPool());
+        if (SlateAmmoText.IsValid()) SlateAmmoText->SetText(FText::FromString(AmmoStr));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Interact] Pickup not consumed (type=%d)"), (int32)Type);
     }
 }
 
@@ -1168,6 +1280,20 @@ void ALCPlayerCharacter::InitSlateUI()
         .ColorAndOpacity(FLinearColor(1.f, 0.9f, 0.3f))
         .Text(FText::FromString(TEXT("WAVE 1 / 20")));
 
+    SAssignNew(SlateHealthText, STextBlock)
+        .Font(BigFont)
+        .ColorAndOpacity(FLinearColor(0.2f, 1.f, 0.2f))
+        .Text(FText::FromString(TEXT("HP 500/500")));
+
+    SAssignNew(SlatePickupText, STextBlock)
+        .Font(MedFont)
+        .ColorAndOpacity(FLinearColor(1.f, 1.f, 0.f, 0.9f))
+        .Visibility(EVisibility::Hidden);
+
+    SAssignNew(SlateHealthBarFill, SBox)
+        .WidthOverride(200.f).HeightOverride(8.f)
+        [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.1f, 0.9f, 0.1f, 0.85f))];
+
     SAssignNew(SlateCrossTop, SBox)
         .WidthOverride(2.f).HeightOverride(16.f)
         [SNew(SBorder).BorderBackgroundColor(FLinearColor(0.f, 1.f, 0.f, 0.85f))];
@@ -1211,7 +1337,15 @@ void ALCPlayerCharacter::InitSlateUI()
         + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Right)[SlateAmmoText.ToSharedRef()]
     ]
     + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Bottom).Padding(0, 0, 0, 120)
-    [SlateReloadText.ToSharedRef()];
+    [SlateReloadText.ToSharedRef()]
+    + SOverlay::Slot().HAlign(HAlign_Left).VAlign(VAlign_Bottom).Padding(20, 0, 0, 20)
+    [
+        SNew(SVerticalBox)
+        + SVerticalBox::Slot().AutoHeight()[SlateHealthText.ToSharedRef()]
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 4, 0, 0)[SlateHealthBarFill.ToSharedRef()]
+    ]
+    + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Bottom).Padding(0, 0, 0, 60)
+    [SlatePickupText.ToSharedRef()];
 
     GEngine->GameViewport->AddViewportWidgetContent(SlateHUD.ToSharedRef());
     bUIInitialized = true;

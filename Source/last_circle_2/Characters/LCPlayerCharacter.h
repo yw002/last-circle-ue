@@ -181,10 +181,14 @@ protected:
     TSharedPtr<STextBlock> SlateWeaponText;
     TSharedPtr<STextBlock> SlateReloadText;
     TSharedPtr<STextBlock> SlateWaveText;
+    TSharedPtr<STextBlock> SlateHealthText;
+    TSharedPtr<STextBlock> SlatePickupText;
+    TSharedPtr<SBox> SlateHealthBarFill;
     TSharedPtr<SBox> SlateCrossTop, SlateCrossBot, SlateCrossLeft, SlateCrossRight;
     float CrosshairGap = 10.f;
     float CrosshairLen = 16.f;
     bool bUIInitialized = false;
+    float LastHealthPercent = 1.f;
 
     UPROPERTY()
     float RecoilAnimTime = 0.f;

@@ -112,8 +112,8 @@ protected:
 
     static constexpr int32 TOTAL_WAVES = 20;
     static constexpr float REST_DURATION = 15.f;
-    static constexpr int32 BASE_ENEMY_COUNT = 2;
-    static constexpr int32 ENEMIES_PER_WAVE = 1;
+    static constexpr int32 BASE_ENEMY_COUNT = 5;
+    static constexpr int32 ENEMIES_PER_WAVE = 3;
     static constexpr int32 BOSS_EVERY_N_WAVES = 5;
     static constexpr float KILL_THRESHOLD = 0.80f;
 

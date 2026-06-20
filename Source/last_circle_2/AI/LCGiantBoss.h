@@ -7,6 +7,8 @@
 #include "ProceduralMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Sound/SoundWaveProcedural.h"
+#include "DrawDebugHelpers.h"
 #include "LCGiantBoss.generated.h"
 
 UCLASS()
@@ -17,6 +19,7 @@ public:
     ALCGiantBoss()
     {
         PrimaryActorTick.bCanEverTick = true;
+        AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
         Health = 5000.f; MaxHealth = 5000.f;
         BaseSpeed = 150.f;
     }
@@ -39,18 +42,48 @@ public:
 
         FVector PlayerLoc = PC->GetPawn()->GetActorLocation();
         FVector Dir = (PlayerLoc - GetActorLocation()).GetSafeNormal();
-        AddMovementInput(Dir, 1.f);
+
+        // Only approach if far
+        float Dist2D = FVector::Dist2D(GetActorLocation(), PlayerLoc);
+        if (Dist2D > 2000.f)
+            AddMovementInput(Dir, 1.f);
 
         // Attack nearby player
         AttackCooldown -= DeltaSeconds;
         if (AttackCooldown <= 0.f)
         {
-            float Dist = FVector::Dist(GetActorLocation(), PlayerLoc);
-            if (Dist < 1200.f)
+            if (Dist2D < 2000.f)
             {
-                FDamageEvent DmgEvent;
-                PC->GetPawn()->TakeDamage(10.f, DmgEvent, GetController(), this);
+                PC->GetPawn()->TakeDamage(40.f, FDamageEvent(), nullptr, this);
                 AttackCooldown = 1.5f;
+
+                // Visual feedback: giant smash
+                FVector Start = GetActorLocation() + FVector(0.f, 0.f, 200.f);
+                FVector End = PlayerLoc + FVector(0.f, 0.f, 60.f);
+                DrawDebugLine(GetWorld(), Start, End, FColor(255, 100, 0), false, 0.3f, 0, 4.0f);
+                DrawDebugSphere(GetWorld(), End, 15.f, 8, FColor(255, 50, 0), false, 0.4f);
+
+                // Sound (fresh each time)
+                {
+                    USoundWaveProcedural* Sound = NewObject<USoundWaveProcedural>(this);
+                    Sound->SetSampleRate(44100);
+                    Sound->NumChannels = 1;
+                    Sound->Duration = 0.3f;
+                    int32 N = FMath::CeilToInt(44100.f * 0.3f);
+                    TArray<uint8> AD; AD.SetNumUninitialized(N * 2);
+                    int16* S = reinterpret_cast<int16*>(AD.GetData());
+                    for (int32 i = 0; i < N; ++i)
+                    {
+                        float T = (float)i / 44100.f;
+                        float E = FMath::Exp(-T * 15.f);
+                        float Noise = FMath::FRandRange(-1.f, 1.f);
+                        float Bass = FMath::Sin(T * 80.f * 2.f * PI) * 0.7f;
+                        float Val = (Noise * 0.3f + Bass) * E;
+                        S[i] = (int16)(FMath::Clamp(Val, -1.f, 1.f) * 32000.f);
+                    }
+                    Sound->QueueAudio(AD.GetData(), AD.Num());
+                    UGameplayStatics::PlaySoundAtLocation(this, Sound, GetActorLocation(), 5.f);
+                }
             }
         }
 

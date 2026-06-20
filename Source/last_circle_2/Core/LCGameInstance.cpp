@@ -41,28 +41,39 @@ void ULCGameInstance::Shutdown()
 void ULCGameInstance::CreateEnhancedInputAssets()
 {
     // Create Input Actions
-    auto CreateIA = [this](const FName& Name, EInputActionValueType ValueType) -> UInputAction*
+    // Button actions need a UInputTriggerPressed trigger to fire Started/Completed events
+    auto CreateButtonIA = [this](const FName& Name) -> UInputAction*
     {
         UInputAction* IA = NewObject<UInputAction>(this, Name);
-        IA->ValueType = ValueType;
+        IA->ValueType = EInputActionValueType::Boolean;
+        // CRITICAL: Without triggers, Started/Completed events never fire!
+        UInputTriggerPressed* Trigger = NewObject<UInputTriggerPressed>(IA);
+        IA->Triggers.Add(Trigger);
+        IA->AddToRoot();
+        return IA;
+    };
+    auto CreateAxisIA = [this](const FName& Name, EInputActionValueType VT) -> UInputAction*
+    {
+        UInputAction* IA = NewObject<UInputAction>(this, Name);
+        IA->ValueType = VT;
         IA->AddToRoot();
         return IA;
     };
 
-    IA_Move         = CreateIA(FName("IA_Move"), EInputActionValueType::Axis2D);
-    IA_Look         = CreateIA(FName("IA_Look"), EInputActionValueType::Axis2D);
-    IA_Jump         = CreateIA(FName("IA_Jump"), EInputActionValueType::Boolean);
-    IA_Sprint       = CreateIA(FName("IA_Sprint"), EInputActionValueType::Boolean);
-    IA_Shoot        = CreateIA(FName("IA_Shoot"), EInputActionValueType::Boolean);
-    IA_ADS          = CreateIA(FName("IA_ADS"), EInputActionValueType::Boolean);
-    IA_Reload       = CreateIA(FName("IA_Reload"), EInputActionValueType::Boolean);
-    IA_Interact     = CreateIA(FName("IA_Interact"), EInputActionValueType::Boolean);
-    IA_SwapWeapon   = CreateIA(FName("IA_SwapWeapon"), EInputActionValueType::Boolean);
-    IA_UseMedkit    = CreateIA(FName("IA_UseMedkit"), EInputActionValueType::Boolean);
-    IA_ThrowGrenade = CreateIA(FName("IA_ThrowGrenade"), EInputActionValueType::Boolean);
-    IA_EnterVehicle = CreateIA(FName("IA_EnterVehicle"), EInputActionValueType::Boolean);
-    IA_MouseWheel   = CreateIA(FName("IA_MouseWheel"), EInputActionValueType::Axis1D);
-    IA_Crouch       = CreateIA(FName("IA_Crouch"), EInputActionValueType::Boolean);
+    IA_Move         = CreateAxisIA(FName("IA_Move"), EInputActionValueType::Axis2D);
+    IA_Look         = CreateAxisIA(FName("IA_Look"), EInputActionValueType::Axis2D);
+    IA_Jump         = CreateButtonIA(FName("IA_Jump"));
+    IA_Sprint       = CreateButtonIA(FName("IA_Sprint"));
+    IA_Shoot        = CreateButtonIA(FName("IA_Shoot"));
+    IA_ADS          = CreateButtonIA(FName("IA_ADS"));
+    IA_Reload       = CreateButtonIA(FName("IA_Reload"));
+    IA_Interact     = CreateButtonIA(FName("IA_Interact"));
+    IA_SwapWeapon   = CreateButtonIA(FName("IA_SwapWeapon"));
+    IA_UseMedkit    = CreateButtonIA(FName("IA_UseMedkit"));
+    IA_ThrowGrenade = CreateButtonIA(FName("IA_ThrowGrenade"));
+    IA_EnterVehicle = CreateButtonIA(FName("IA_EnterVehicle"));
+    IA_MouseWheel   = CreateAxisIA(FName("IA_MouseWheel"), EInputActionValueType::Axis1D);
+    IA_Crouch       = CreateButtonIA(FName("IA_Crouch"));
 
     // Create Input Mapping Context
     IMC_Default = NewObject<UInputMappingContext>(this, FName("IMC_Default"));
@@ -189,45 +200,45 @@ void ULCGameInstance::InitializeWeaponData()
         WeaponDataMap.Add(Name, Data);
     };
 
-    // Assault Rifles
-    AddWeapon(FName("AKM"),       EWeaponCategory::AssaultRifle, 49.f, 100.f, 30, 2.3f, 2.0f, 1.2f, 0.4f, 1000.f, true);
-    AddWeapon(FName("M416"),      EWeaponCategory::AssaultRifle, 41.f,  85.f, 30, 2.1f, 1.5f, 0.9f, 0.3f, 1000.f, true);
-    AddWeapon(FName("SCAR-L"),    EWeaponCategory::AssaultRifle, 41.f,  95.f, 30, 2.2f, 1.6f, 1.0f, 0.3f, 1000.f, true);
-    AddWeapon(FName("M16A4"),     EWeaponCategory::AssaultRifle, 43.f,  80.f, 30, 2.0f, 1.4f, 0.8f, 0.25f, 1200.f, false);
-    AddWeapon(FName("AUG"),       EWeaponCategory::AssaultRifle, 41.f,  85.f, 30, 2.1f, 1.3f, 0.85f, 0.28f, 1000.f, true);
-    AddWeapon(FName("QBZ"),       EWeaponCategory::AssaultRifle, 41.f,  90.f, 30, 2.2f, 1.5f, 0.95f, 0.3f, 1000.f, true);
-    AddWeapon(FName("G36C"),      EWeaponCategory::AssaultRifle, 41.f,  88.f, 30, 2.1f, 1.4f, 0.9f, 0.3f, 1000.f, true);
-    AddWeapon(FName("FAMAS"),     EWeaponCategory::AssaultRifle, 39.f,  75.f, 25, 2.0f, 1.8f, 1.1f, 0.35f, 900.f, true);
-    AddWeapon(FName("ACE32"),     EWeaponCategory::AssaultRifle, 43.f,  95.f, 30, 2.3f, 1.7f, 1.0f, 0.3f, 1000.f, true);
-    AddWeapon(FName("BerylM762"), EWeaponCategory::AssaultRifle, 47.f,  90.f, 30, 2.4f, 2.2f, 1.5f, 0.5f, 1000.f, true);
+    // Assault Rifles - range 3000-4000
+    AddWeapon(FName("AKM"),       EWeaponCategory::AssaultRifle, 49.f, 100.f, 30, 2.3f, 2.0f, 1.2f, 0.4f, 3500.f, true);
+    AddWeapon(FName("M416"),      EWeaponCategory::AssaultRifle, 41.f,  85.f, 30, 2.1f, 1.5f, 0.9f, 0.3f, 3500.f, true);
+    AddWeapon(FName("SCAR-L"),    EWeaponCategory::AssaultRifle, 41.f,  95.f, 30, 2.2f, 1.6f, 1.0f, 0.3f, 3500.f, true);
+    AddWeapon(FName("M16A4"),     EWeaponCategory::AssaultRifle, 43.f,  80.f, 30, 2.0f, 1.4f, 0.8f, 0.25f, 4000.f, false);
+    AddWeapon(FName("AUG"),       EWeaponCategory::AssaultRifle, 41.f,  85.f, 30, 2.1f, 1.3f, 0.85f, 0.28f, 3500.f, true);
+    AddWeapon(FName("QBZ"),       EWeaponCategory::AssaultRifle, 41.f,  90.f, 30, 2.2f, 1.5f, 0.95f, 0.3f, 3500.f, true);
+    AddWeapon(FName("G36C"),      EWeaponCategory::AssaultRifle, 41.f,  88.f, 30, 2.1f, 1.4f, 0.9f, 0.3f, 3500.f, true);
+    AddWeapon(FName("FAMAS"),     EWeaponCategory::AssaultRifle, 39.f,  75.f, 25, 2.0f, 1.8f, 1.1f, 0.35f, 3000.f, true);
+    AddWeapon(FName("ACE32"),     EWeaponCategory::AssaultRifle, 43.f,  95.f, 30, 2.3f, 1.7f, 1.0f, 0.3f, 3500.f, true);
+    AddWeapon(FName("BerylM762"), EWeaponCategory::AssaultRifle, 47.f,  90.f, 30, 2.4f, 2.2f, 1.5f, 0.5f, 3500.f, true);
 
-    // SMGs
-    AddWeapon(FName("UMP45"),     EWeaponCategory::SMG, 39.f,  90.f, 25, 2.0f, 1.8f, 0.7f, 0.2f, 600.f, true);
-    AddWeapon(FName("Vector"),    EWeaponCategory::SMG, 33.f,  55.f, 19, 1.8f, 2.0f, 0.6f, 0.2f, 500.f, true);
-    AddWeapon(FName("Uzi"),       EWeaponCategory::SMG, 28.f,  50.f, 30, 1.7f, 2.5f, 0.5f, 0.3f, 400.f, true);
-    AddWeapon(FName("MP5K"),      EWeaponCategory::SMG, 33.f,  80.f, 30, 1.9f, 2.0f, 0.65f, 0.2f, 550.f, true);
-    AddWeapon(FName("PP19"),      EWeaponCategory::SMG, 30.f,  75.f, 53, 2.2f, 2.2f, 0.6f, 0.25f, 500.f, true);
-    AddWeapon(FName("Thompson"),  EWeaponCategory::SMG, 36.f,  80.f, 30, 2.0f, 2.0f, 0.8f, 0.3f, 550.f, true);
+    // SMGs - range 1500-2000
+    AddWeapon(FName("UMP45"),     EWeaponCategory::SMG, 39.f,  90.f, 25, 2.0f, 1.8f, 0.7f, 0.2f, 2000.f, true);
+    AddWeapon(FName("Vector"),    EWeaponCategory::SMG, 33.f,  55.f, 19, 1.8f, 2.0f, 0.6f, 0.2f, 1800.f, true);
+    AddWeapon(FName("Uzi"),       EWeaponCategory::SMG, 28.f,  50.f, 30, 1.7f, 2.5f, 0.5f, 0.3f, 1500.f, true);
+    AddWeapon(FName("MP5K"),      EWeaponCategory::SMG, 33.f,  80.f, 30, 1.9f, 2.0f, 0.65f, 0.2f, 1800.f, true);
+    AddWeapon(FName("PP19"),      EWeaponCategory::SMG, 30.f,  75.f, 53, 2.2f, 2.2f, 0.6f, 0.25f, 1800.f, true);
+    AddWeapon(FName("Thompson"),  EWeaponCategory::SMG, 36.f,  80.f, 30, 2.0f, 2.0f, 0.8f, 0.3f, 1800.f, true);
 
-    // Snipers
-    AddWeapon(FName("Kar98k"),    EWeaponCategory::Sniper, 79.f,  1900.f, 5, 3.5f, 0.5f, 2.5f, 0.3f, 2000.f, false);
-    AddWeapon(FName("M24"),       EWeaponCategory::Sniper, 79.f,  1800.f, 5, 3.2f, 0.4f, 2.3f, 0.25f, 2200.f, false);
-    AddWeapon(FName("AWM"),       EWeaponCategory::Sniper, 120.f, 1850.f, 5, 4.0f, 0.3f, 3.0f, 0.4f, 3000.f, false);
-    AddWeapon(FName("SKS"),       EWeaponCategory::Sniper, 55.f,  250.f,  10, 2.8f, 0.8f, 1.8f, 0.4f, 1500.f, false);
-    AddWeapon(FName("Mini14"),    EWeaponCategory::Sniper, 46.f,  180.f,  20, 2.5f, 0.9f, 1.5f, 0.35f, 1500.f, false);
-    AddWeapon(FName("Mk14"),      EWeaponCategory::Sniper, 60.f,  130.f,  10, 3.0f, 1.0f, 2.0f, 0.5f, 1800.f, true);
-    AddWeapon(FName("SLR"),       EWeaponCategory::Sniper, 58.f,  200.f,  10, 2.8f, 0.9f, 1.9f, 0.4f, 1700.f, false);
+    // Snipers - range 6000-10000
+    AddWeapon(FName("Kar98k"),    EWeaponCategory::Sniper, 79.f,  1900.f, 5, 3.5f, 0.5f, 2.5f, 0.3f, 8000.f, false);
+    AddWeapon(FName("M24"),       EWeaponCategory::Sniper, 79.f,  1800.f, 5, 3.2f, 0.4f, 2.3f, 0.25f, 8000.f, false);
+    AddWeapon(FName("AWM"),       EWeaponCategory::Sniper, 120.f, 1850.f, 5, 4.0f, 0.3f, 3.0f, 0.4f, 10000.f, false);
+    AddWeapon(FName("SKS"),       EWeaponCategory::Sniper, 55.f,  250.f,  10, 2.8f, 0.8f, 1.8f, 0.4f, 6000.f, false);
+    AddWeapon(FName("Mini14"),    EWeaponCategory::Sniper, 46.f,  180.f,  20, 2.5f, 0.9f, 1.5f, 0.35f, 6000.f, false);
+    AddWeapon(FName("Mk14"),      EWeaponCategory::Sniper, 60.f,  130.f,  10, 3.0f, 1.0f, 2.0f, 0.5f, 7000.f, true);
+    AddWeapon(FName("SLR"),       EWeaponCategory::Sniper, 58.f,  200.f,  10, 2.8f, 0.9f, 1.9f, 0.4f, 6500.f, false);
 
-    // Shotguns
-    AddWeapon(FName("S686"),      EWeaponCategory::Shotgun, 26.f,  300.f, 2, 2.5f, 6.0f, 2.0f, 0.5f, 300.f, false, 9);
-    AddWeapon(FName("S1897"),     EWeaponCategory::Shotgun, 26.f,  500.f, 5, 3.0f, 6.0f, 2.0f, 0.5f, 300.f, false, 9);
-    AddWeapon(FName("S12K"),      EWeaponCategory::Shotgun, 22.f,  200.f, 5, 2.8f, 6.5f, 1.8f, 0.5f, 300.f, true, 9);
-    AddWeapon(FName("DBS"),       EWeaponCategory::Shotgun, 26.f,  250.f, 14, 3.2f, 6.0f, 2.2f, 0.5f, 300.f, false, 9);
+    // Shotguns - range 800
+    AddWeapon(FName("S686"),      EWeaponCategory::Shotgun, 26.f,  300.f, 2, 2.5f, 6.0f, 2.0f, 0.5f, 800.f, false, 9);
+    AddWeapon(FName("S1897"),     EWeaponCategory::Shotgun, 26.f,  500.f, 5, 3.0f, 6.0f, 2.0f, 0.5f, 800.f, false, 9);
+    AddWeapon(FName("S12K"),      EWeaponCategory::Shotgun, 22.f,  200.f, 5, 2.8f, 6.5f, 1.8f, 0.5f, 800.f, true, 9);
+    AddWeapon(FName("DBS"),       EWeaponCategory::Shotgun, 26.f,  250.f, 14, 3.2f, 6.0f, 2.2f, 0.5f, 800.f, false, 9);
 
-    // Pistols
-    AddWeapon(FName("P92"),       EWeaponCategory::Pistol, 35.f,  150.f, 15, 1.8f, 2.5f, 0.8f, 0.2f, 500.f, false);
-    AddWeapon(FName("P18C"),      EWeaponCategory::Pistol, 28.f,  70.f,  17, 1.7f, 3.0f, 0.7f, 0.25f, 400.f, true);
-    AddWeapon(FName("DesertEagle"), EWeaponCategory::Pistol, 55.f, 300.f, 7, 2.0f, 2.0f, 1.5f, 0.5f, 700.f, false);
+    // Pistols - range 1500-2500
+    AddWeapon(FName("P92"),       EWeaponCategory::Pistol, 35.f,  150.f, 15, 1.8f, 2.5f, 0.8f, 0.2f, 1500.f, false);
+    AddWeapon(FName("P18C"),      EWeaponCategory::Pistol, 28.f,  70.f,  17, 1.7f, 3.0f, 0.7f, 0.25f, 1500.f, true);
+    AddWeapon(FName("DesertEagle"), EWeaponCategory::Pistol, 55.f, 300.f, 7, 2.0f, 2.0f, 1.5f, 0.5f, 2500.f, false);
 
     // Melee
     {

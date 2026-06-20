@@ -15,6 +15,7 @@ public:
     ALCGhostCharacter()
     {
         PrimaryActorTick.bCanEverTick = true;
+        AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
         Health = 1.f; MaxHealth = 1.f;
         BaseSpeed = 100.f;
         GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);

@@ -30,17 +30,18 @@ ALCBaseCharacter::ALCBaseCharacter()
     GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
     GetCharacterMovement()->JumpZVelocity = 520.f;
     GetCharacterMovement()->AirControl = 0.35f;
-    GetCharacterMovement()->MaxStepHeight = 150.f;
-    GetCharacterMovement()->GroundFriction = 32.f;
-    GetCharacterMovement()->BrakingDecelerationWalking = 4096.f;
+    GetCharacterMovement()->MaxStepHeight = 50.f;
+    GetCharacterMovement()->GroundFriction = 12.f;
+    GetCharacterMovement()->BrakingDecelerationWalking = 2048.f;
     GetCharacterMovement()->bUseSeparateBrakingFriction = false;
     GetCharacterMovement()->BrakingFrictionFactor = 2.f;
     GetCharacterMovement()->PerchRadiusThreshold = 10.f;
     GetCharacterMovement()->PerchAdditionalHeight = 30.f;
     GetCharacterMovement()->MaxWalkSpeedCrouched = BaseSpeed * 0.6f;
-    GetCharacterMovement()->SetWalkableFloorAngle(70.f);
+    GetCharacterMovement()->SetWalkableFloorAngle(55.f);
     GetCharacterMovement()->bAlwaysCheckFloor = true;
     GetCharacterMovement()->bCanWalkOffLedgesWhenCrouching = true;
+    GetCharacterMovement()->Mass = 100.f;
     JumpMaxCount = 2;
 }
 
@@ -365,58 +366,60 @@ UMaterial* ALCBaseCharacter::GetOrCreateVertexColorMaterial()
     static UMaterial* Cached = nullptr;
     if (Cached) return Cached;
 
-#if WITH_EDITOR
-    if (!IsRunningCommandlet())
-    {
-        Cached = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
-        if (Cached) { UE_LOG(LogTemp, Log, TEXT("[VertexColorMat] Loaded from EngineDebugMaterials")); return Cached; }
-    }
-#endif
-
+    // 1. Try loading existing asset (works in BOTH editor and packaged)
     Cached = LoadObject<UMaterial>(nullptr, TEXT("/Game/M_VertexColor.M_VertexColor"));
-    if (Cached) { UE_LOG(LogTemp, Log, TEXT("[VertexColorMat] Loaded from project Content")); return Cached; }
-
-#if WITH_EDITOR
-    if (IsRunningCommandlet())
+    if (Cached)
     {
-        Cached = UMaterial::GetDefaultMaterial(MD_Surface);
-        UE_LOG(LogTemp, Log, TEXT("[VertexColorMat] Commandlet fallback to default"));
+        Cached->AddToRoot();
+        UE_LOG(LogTemp, Warning, TEXT("[VertexColorMat] Loaded existing asset"));
         return Cached;
     }
 
-    FString PkgPath = TEXT("/Game/M_VertexColor");
-    FString FilePath = FPackageName::LongPackageNameToFilename(PkgPath, FPackageName::GetAssetPackageExtension());
-
-    IPlatformFile& PF = FPlatformFileManager::Get().GetPlatformFile();
-    FString Dir = FPaths::GetPath(FilePath);
-    if (!PF.DirectoryExists(*Dir)) PF.CreateDirectoryTree(*Dir);
-
-    UPackage* Pkg = CreatePackage(*PkgPath);
-    Cached = NewObject<UMaterial>(Pkg, UMaterial::StaticClass(), FName("M_VertexColor"), RF_Public | RF_Standalone);
-    Cached->SetShadingModel(MSM_Unlit);
-    Cached->MaterialDomain = MD_Surface;
-    Cached->BlendMode = BLEND_Opaque;
-
-    UMaterialExpressionVertexColor* VtxNode = NewObject<UMaterialExpressionVertexColor>(Cached);
-    Cached->GetExpressionCollection().AddExpression(VtxNode);
-    Cached->GetEditorOnlyData()->EmissiveColor.Expression = VtxNode;
-
-    Cached->PostEditChange();
-    if (FModuleManager::Get().IsModuleLoaded("AssetRegistry"))
-        FAssetRegistryModule::AssetCreated(Cached);
-    Pkg->SetDirtyFlag(true);
-    FSavePackageArgs SaveArgs;
-    SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
-    bool bSaved = UPackage::SavePackage(Pkg, Cached, *FilePath, SaveArgs);
-    UE_LOG(LogTemp, Warning, TEXT("[VertexColorMat] Save to %s: %s"), *FilePath, bSaved ? TEXT("SUCCESS") : TEXT("FAILED"));
-    if (!bSaved) { Cached = nullptr; }
-#endif
-
-    if (!Cached)
+    // 2. Try engine debug material (available in editor)
+    Cached = LoadObject<UMaterial>(nullptr, TEXT("/Engine/EngineDebugMaterials/VertexColorMaterial.VertexColorMaterial"));
+    if (Cached)
     {
-        Cached = UMaterial::GetDefaultMaterial(MD_Surface);
-        UE_LOG(LogTemp, Warning, TEXT("[VertexColorMat] Fallback to default material"));
+        Cached->AddToRoot();
+        UE_LOG(LogTemp, Warning, TEXT("[VertexColorMat] Loaded engine debug material"));
+        return Cached;
     }
 
+#if WITH_EDITOR
+    // 3. Create and SAVE material asset (editor only - must run in PIE once before packaging)
+    UE_LOG(LogTemp, Warning, TEXT("[VertexColorMat] Creating material asset..."));
+    FString PkgPath = TEXT("/Game/M_VertexColor");
+    UPackage* Pkg = CreatePackage(*PkgPath);
+    if (Pkg)
+    {
+        Cached = NewObject<UMaterial>(Pkg, UMaterial::StaticClass(), FName("M_VertexColor"),
+            RF_Public | RF_Standalone | RF_Transactional);
+        Cached->AddToRoot();
+
+        Cached->SetShadingModel(MSM_Unlit);
+        Cached->MaterialDomain = MD_Surface;
+        Cached->BlendMode = BLEND_Opaque;
+        Cached->TwoSided = true;
+
+        UMaterialExpressionVertexColor* VtxNode = NewObject<UMaterialExpressionVertexColor>(Cached);
+        Cached->GetExpressionCollection().AddExpression(VtxNode);
+        Cached->GetEditorOnlyData()->EmissiveColor.Expression = VtxNode;
+
+        Cached->PostEditChange();
+
+        if (FModuleManager::Get().IsModuleLoaded("AssetRegistry"))
+            FAssetRegistryModule::AssetCreated(Cached);
+
+        FString FilePath = FPackageName::LongPackageNameToFilename(PkgPath, FPackageName::GetAssetPackageExtension());
+        FSavePackageArgs SaveArgs;
+        SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+        bool bSaved = UPackage::SavePackage(Pkg, Cached, *FilePath, SaveArgs);
+        UE_LOG(LogTemp, Warning, TEXT("[VertexColorMat] Saved to %s: %s"), *FilePath, bSaved ? TEXT("OK") : TEXT("FAILED"));
+        if (bSaved) return Cached;
+    }
+#endif
+
+    // 4. Final fallback (packaged build without pre-created asset)
+    Cached = UMaterial::GetDefaultMaterial(MD_Surface);
+    UE_LOG(LogTemp, Error, TEXT("[VertexColorMat] FALLBACK to default material! Run PIE once before packaging to create M_VertexColor asset."));
     return Cached;
 }

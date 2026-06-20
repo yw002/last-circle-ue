@@ -51,7 +51,7 @@ void ALCPlayerController::SetupInputComponent()
             if (GI->IA_Jump)         EIC->BindAction(GI->IA_Jump,         ETriggerEvent::Started,   this, &ALCPlayerController::OnJumpStarted);
             if (GI->IA_Sprint)       EIC->BindAction(GI->IA_Sprint,       ETriggerEvent::Started,   this, &ALCPlayerController::OnSprintStarted);
             if (GI->IA_Sprint)       EIC->BindAction(GI->IA_Sprint,       ETriggerEvent::Completed, this, &ALCPlayerController::OnSprintEnded);
-            if (GI->IA_Shoot)        EIC->BindAction(GI->IA_Shoot,        ETriggerEvent::Started,   this, &ALCPlayerController::OnShootStarted);
+            if (GI->IA_Shoot)        EIC->BindAction(GI->IA_Shoot,        ETriggerEvent::Triggered, this, &ALCPlayerController::OnShootStarted);
             if (GI->IA_Shoot)        EIC->BindAction(GI->IA_Shoot,        ETriggerEvent::Completed, this, &ALCPlayerController::OnShootReleased);
             if (GI->IA_ADS)          EIC->BindAction(GI->IA_ADS,          ETriggerEvent::Started,   this, &ALCPlayerController::OnADSStarted);
             if (GI->IA_ADS)          EIC->BindAction(GI->IA_ADS,          ETriggerEvent::Completed, this, &ALCPlayerController::OnADSEnded);
@@ -158,9 +158,14 @@ void ALCPlayerController::OnReload()
 
 void ALCPlayerController::OnInteract()
 {
+    UE_LOG(LogTemp, Warning, TEXT("[OnInteract] F pressed!"));
     if (ALCPlayerCharacter* Char = Cast<ALCPlayerCharacter>(GetPawn()))
     {
         Char->Interact();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[OnInteract] No PlayerCharacter pawn!"));
     }
 }
 

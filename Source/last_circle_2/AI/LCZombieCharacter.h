@@ -6,6 +6,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "ProceduralMeshComponent.h"
+#include "EngineUtils.h"
+#include "DrawDebugHelpers.h"
 #include "LCZombieCharacter.generated.h"
 
 UCLASS()
@@ -16,7 +18,8 @@ public:
     ALCZombieCharacter()
     {
         PrimaryActorTick.bCanEverTick = true;
-        Health = 80.f; MaxHealth = 80.f;
+        AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+        Health = 250.f; MaxHealth = 250.f;
         BaseSpeed = 350.f;
         GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
         GetCapsuleComponent()->SetCapsuleSize(50.f, 110.f);
@@ -27,39 +30,52 @@ public:
         BuildProceduralBody(FColor(100, 140, 80), FColor(60, 80, 40));
         ApplyVertexColorMaterial();
         GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
-        BodyMesh->SetWorldScale3D(FVector(1.5f));
-        HeadMesh->SetWorldScale3D(FVector(1.5f));
+        BodyMesh->SetWorldScale3D(FVector(2.2f));
+        HeadMesh->SetWorldScale3D(FVector(2.2f));
     }
     virtual void Tick(float DeltaSeconds) override
     {
         Super::Tick(DeltaSeconds);
         if (bIsDead) return;
         AttackCooldown -= DeltaSeconds;
-        TArray<FHitResult> Hits;
-        FCollisionShape Sphere = FCollisionShape::MakeSphere(3000.f);
-        GetWorld()->SweepMultiByChannel(Hits, GetActorLocation(), GetActorLocation(), FQuat::Identity, ECC_Pawn, Sphere);
-        ALCBaseCharacter* Nearest = nullptr; float MinDist = MAX_FLT;
-        for (const FHitResult& H : Hits)
+        ALCPlayerCharacter* Player = nullptr;
+        float MinDist = MAX_FLT;
+        for (TActorIterator<ALCPlayerCharacter> It(GetWorld()); It; ++It)
         {
-            if (ALCBaseCharacter* C = Cast<ALCBaseCharacter>(H.GetActor()))
+            if (It->IsAlive())
             {
-                if (C != this && C->IsAlive() && C->IsA<ALCPlayerCharacter>())
-                {
-                    float D = FVector::Dist(GetActorLocation(), C->GetActorLocation());
-                    if (D < MinDist) { MinDist = D; Nearest = C; }
-                }
+                float D = FVector::Dist(GetActorLocation(), It->GetActorLocation());
+                if (D < MinDist) { MinDist = D; Player = *It; }
             }
         }
-        if (Nearest)
+        if (Player)
         {
-            FVector Dir = (Nearest->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-            AddMovementInput(Dir, 1.f);
-            if (MinDist < 150.f && AttackCooldown <= 0.f)
+            if (MinDist < 4000.f)
             {
-                float Dmg = 12.f * DamageMultiplier;
-                FDamageEvent DmgEvent;
-                Nearest->TakeDamage(Dmg, DmgEvent, GetController(), this);
-                AttackCooldown = 1.0f;
+                float Dist2D = FVector::Dist2D(GetActorLocation(), Player->GetActorLocation());
+                FRotator LookAt = (Player->GetActorLocation() - GetActorLocation()).Rotation();
+                SetActorRotation(FRotator(0.f, LookAt.Yaw, 0.f));
+
+                // Approach but stop at melee range (don't push into player)
+                if (Dist2D > 350.f)
+                {
+                    FVector Dir = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+                    AddMovementInput(Dir, 1.f);
+                }
+
+                // Melee attack at 350 range
+                if (Dist2D < 350.f && AttackCooldown <= 0.f)
+                {
+                    float Dmg = 18.f;
+                    Player->TakeDamage(Dmg, FDamageEvent(), nullptr, this);
+                    AttackCooldown = 0.8f;
+
+                    // Visual feedback: red slash line
+                    FVector Start = GetActorLocation() + FVector(0.f, 0.f, 80.f);
+                    FVector End = Player->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+                    DrawDebugLine(GetWorld(), Start, End, FColor(255, 0, 0), false, 0.2f, 0, 3.0f);
+                    DrawDebugSphere(GetWorld(), End, 8.f, 6, FColor(255, 0, 0), false, 0.25f);
+                }
             }
         }
     }

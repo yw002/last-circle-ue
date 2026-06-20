@@ -6,6 +6,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Sound/SoundWaveProcedural.h"
+#include "DrawDebugHelpers.h"
 #include "LCAlienCharacter.generated.h"
 
 UENUM() enum class EAlienState : uint8 { Idle, Patrol, Attack, Teleport };
@@ -18,6 +20,7 @@ public:
     ALCAlienCharacter()
     {
         PrimaryActorTick.bCanEverTick = true;
+        AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
         Health = 150.f; MaxHealth = 150.f;
         BaseSpeed = 400.f;
         GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
@@ -123,29 +126,60 @@ protected:
             return;
         }
 
-        FVector Dir = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-        AddMovementInput(Dir, 1.f);
-
         // Face target
         FRotator LookAt = (TargetActor->GetActorLocation() - GetActorLocation()).Rotation();
         SetActorRotation(FRotator(0.f, LookAt.Yaw, 0.f));
 
-        float Dist = FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
-        if (Dist > 800.f)
+        float Dist = FVector::Dist2D(GetActorLocation(), TargetActor->GetActorLocation());
+        if (Dist > 3000.f)
         {
             CurrentState = EAlienState::Patrol;
             TargetActor = nullptr;
             return;
         }
 
-        // Attack with energy blast (20 damage)
-        AttackCooldown -= DT;
-        if (Dist < 400.f && AttackCooldown <= 0.f)
+        // Only approach if far, STOP when in range
+        if (Dist > 1500.f)
         {
-            FDamageEvent DmgEvent;
-            float Dmg = 20.f * DamageMultiplier;
-            TargetActor->TakeDamage(Dmg, DmgEvent, GetController(), this);
+            FVector Dir = (TargetActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+            AddMovementInput(Dir, 1.f);
+        }
+
+        // Attack with energy blast from distance
+        AttackCooldown -= DT;
+        if (Dist < 1500.f && AttackCooldown <= 0.f)
+        {
+            float Dmg = 20.f;
+            TargetActor->TakeDamage(Dmg, FDamageEvent(), nullptr, this);
             AttackCooldown = 1.2f;
+
+            // Bullet tracer (green for alien)
+            FVector Start = GetActorLocation() + FVector(0.f, 0.f, 80.f);
+            FVector End = TargetActor->GetActorLocation() + FVector(0.f, 0.f, 60.f);
+            DrawDebugLine(GetWorld(), Start, End, FColor(0, 255, 80), false, 0.2f, 0, 2.5f);
+            DrawDebugSphere(GetWorld(), End, 6.f, 6, FColor(0, 255, 0), false, 0.2f);
+
+            // Gunshot sound (fresh each time)
+            {
+                USoundWaveProcedural* Sound = NewObject<USoundWaveProcedural>(this);
+                Sound->SetSampleRate(44100);
+                Sound->NumChannels = 1;
+                Sound->Duration = 0.18f;
+                int32 N = FMath::CeilToInt(44100.f * 0.18f);
+                TArray<uint8> AD; AD.SetNumUninitialized(N * 2);
+                int16* S = reinterpret_cast<int16*>(AD.GetData());
+                for (int32 i = 0; i < N; ++i)
+                {
+                    float T = (float)i / 44100.f;
+                    float Env = FMath::Exp(-T * 22.f);
+                    float Noise = FMath::FRandRange(-1.f, 1.f);
+                    float Bass = FMath::Sin(T * 180.f * 2.f * PI) * 0.4f;
+                    float Val = (Noise * 0.5f + Bass) * Env;
+                    S[i] = (int16)(FMath::Clamp(Val, -1.f, 1.f) * 28000.f);
+                }
+                Sound->QueueAudio(AD.GetData(), AD.Num());
+                UGameplayStatics::PlaySoundAtLocation(this, Sound, GetActorLocation(), 3.f);
+            }
         }
 
         // Occasionally teleport behind target

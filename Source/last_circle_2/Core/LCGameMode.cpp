@@ -306,7 +306,7 @@ void ALCGameMode::SpawnWaveEnemies()
     FActorSpawnParameters SpawnParams;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-    float HealthScale = 1.f + CurrentWave * 0.08f;
+    float HealthScale = 1.f + CurrentWave * 0.15f;
     float DamageScale = 1.f + CurrentWave * 0.05f;
     float SpeedScale  = 1.f + CurrentWave * 0.02f;
 
@@ -363,6 +363,15 @@ void ALCGameMode::SpawnWaveEnemies()
 
     SetGamePhase(EGamePhase::WaveCombat);
     OnWaveStarted.Broadcast(CurrentWave);
+
+    // Spawn pickups for the player (ammo, medkits, weapons)
+    int32 PickupCount = 2 + CurrentWave;
+    for (int32 i = 0; i < PickupCount; ++i)
+    {
+        FVector Loc = GetRandomSpawnLocation(PlayerPawn->GetActorLocation());
+        Loc.Z += 50.f; // Float above ground
+        GetWorld()->SpawnActor<ALCPickupItem>(ALCPickupItem::StaticClass(), Loc, FRotator::ZeroRotator, SpawnParams);
+    }
 }
 
 void ALCGameMode::SpawnBossGiant()
@@ -452,7 +461,7 @@ void ALCGameMode::CheckVictoryConditions()
 FVector ALCGameMode::GetRandomSpawnLocation(const FVector& PlayerPos) const
 {
     float Angle = FMath::RandRange(0.f, 360.f);
-    float Dist  = FMath::RandRange(800.f, 2000.f);
+    float Dist  = FMath::RandRange(2500.f, 5000.f);
     FVector Offset(FMath::Cos(FMath::DegreesToRadians(Angle)) * Dist,
                    FMath::Sin(FMath::DegreesToRadians(Angle)) * Dist, 0.f);
     FVector Loc = PlayerPos + Offset;
